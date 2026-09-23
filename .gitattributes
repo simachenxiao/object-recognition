@@ -1,0 +1,29 @@
+# ══════════════════════════════════════════════════════════════
+#  .gitattributes —— 换行符策略
+#
+#  ★ 关键：Windows 批处理必须保持 CRLF。
+#    cmd.exe 读取 LF 换行的 .bat 会出现解析错乱
+#    （见 README §6.4），所以这里显式钉住。
+# ══════════════════════════════════════════════════════════════
+
+# 默认：仓库内存 LF，检出时按平台
+* text=auto eol=lf
+
+# Windows 脚本必须 CRLF
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# 二进制文件不做换行转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.bmp  binary
+*.webp binary
+*.pt   binary
+*.bin  binary
+*.safetensors binary
+*.npy  binary
+
+# 锁文件不参与 diff（噪音大）
+requirements-lock.txt -diff

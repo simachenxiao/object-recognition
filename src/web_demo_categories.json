@@ -1,0 +1,394 @@
+{
+  "thresholds": {
+    "clip": 0.7,
+    "siglip": 0.0005
+  },
+  "margin": 0.3,
+  "categories": [
+    {
+      "name": "身份证",
+      "descs": [
+        "an identity card",
+        "a Chinese resident ID card",
+        "a government issued ID card",
+        "a small plastic identification card"
+      ]
+    },
+    {
+      "name": "驾驶证",
+      "descs": [
+        "a driver license",
+        "a driving licence",
+        "a motor vehicle driver license"
+      ]
+    },
+    {
+      "name": "行驶证",
+      "descs": [
+        "a vehicle registration certificate",
+        "a vehicle license booklet",
+        "a car registration paper"
+      ]
+    },
+    {
+      "name": "银行卡",
+      "descs": [
+        "a bank card",
+        "a credit card",
+        "a debit card",
+        "a plastic payment card"
+      ]
+    },
+    {
+      "name": "公交卡",
+      "descs": [
+        "a transit card",
+        "a bus pass card",
+        "a public transport smart card",
+        "a bus card"
+      ]
+    },
+    {
+      "name": "票据",
+      "descs": [
+        "a receipt",
+        "an invoice",
+        "a paper ticket",
+        "a printed voucher"
+      ]
+    },
+    {
+      "name": "现金",
+      "descs": [
+        "paper money",
+        "banknotes",
+        "a stack of cash",
+        "Chinese yuan banknotes",
+        "coins"
+      ]
+    },
+    {
+      "name": "手机",
+      "descs": [
+        "a mobile phone",
+        "a smartphone",
+        "a cell phone"
+      ]
+    },
+    {
+      "name": "手机充电器",
+      "descs": [
+        "a phone charger",
+        "a wall charger",
+        "a power adapter",
+        "a charging brick"
+      ]
+    },
+    {
+      "name": "充电宝",
+      "descs": [
+        "a power bank",
+        "a portable battery charger",
+        "a battery pack"
+      ]
+    },
+    {
+      "name": "耳机",
+      "descs": [
+        "earphones",
+        "headphones",
+        "earbuds",
+        "a headset"
+      ]
+    },
+    {
+      "name": "手表",
+      "descs": [
+        "a wristwatch",
+        "a watch",
+        "a mechanical watch"
+      ]
+    },
+    {
+      "name": "平板电脑",
+      "descs": [
+        "a tablet computer",
+        "an iPad",
+        "a tablet device"
+      ]
+    },
+    {
+      "name": "笔记本电脑",
+      "descs": [
+        "a laptop computer",
+        "a notebook computer",
+        "a laptop",
+        "a closed laptop"
+      ]
+    },
+    {
+      "name": "U盘",
+      "descs": [
+        "a USB flash drive",
+        "a thumb drive",
+        "a USB stick"
+      ]
+    },
+    {
+      "name": "电子烟",
+      "descs": [
+        "an electronic cigarette",
+        "a vape pen",
+        "a vape device"
+      ]
+    },
+    {
+      "name": "香烟",
+      "descs": [
+        "a pack of cigarettes",
+        "a cigarette pack",
+        "a cigarette box"
+      ]
+    },
+    {
+      "name": "打火机",
+      "descs": [
+        "a lighter",
+        "a cigarette lighter",
+        "a disposable lighter"
+      ]
+    },
+    {
+      "name": "钱包",
+      "descs": [
+        "a wallet",
+        "a leather wallet",
+        "a billfold"
+      ]
+    },
+    {
+      "name": "手提包",
+      "descs": [
+        "a handbag",
+        "a tote bag",
+        "a shoulder bag",
+        "a purse"
+      ]
+    },
+    {
+      "name": "背包",
+      "descs": [
+        "a backpack",
+        "a knapsack",
+        "a rucksack",
+        "a school bag"
+      ]
+    },
+    {
+      "name": "戒指",
+      "descs": [
+        "a ring",
+        "a gold ring",
+        "a diamond ring"
+      ]
+    },
+    {
+      "name": "项链",
+      "descs": [
+        "a necklace",
+        "a gold chain",
+        "a pendant necklace"
+      ]
+    },
+    {
+      "name": "手链手镯",
+      "descs": [
+        "a bracelet",
+        "a bangle",
+        "a wrist chain",
+        "a beaded bracelet"
+      ]
+    },
+    {
+      "name": "耳环",
+      "descs": [
+        "an earring",
+        "a pair of earrings",
+        "an ear stud"
+      ]
+    },
+    {
+      "name": "眼镜",
+      "descs": [
+        "eyeglasses worn on a face",
+        "a pair of glasses on someone's face",
+        "spectacles"
+      ]
+    },
+    {
+      "name": "帽子",
+      "descs": [
+        "a hat worn on a person's head",
+        "a cap on someone's head",
+        "a baseball cap"
+      ]
+    },
+    {
+      "name": "围巾",
+      "descs": [
+        "a scarf wrapped around a person's neck",
+        "a knitted scarf worn on a person",
+        "a neck scarf on someone"
+      ]
+    },
+    {
+      "name": "皮带",
+      "descs": [
+        "a belt",
+        "a leather belt",
+        "a waist belt"
+      ]
+    },
+    {
+      "name": "口罩",
+      "descs": [
+        "a face mask worn on a person's face",
+        "a surgical mask covering a mouth"
+      ]
+    },
+    {
+      "name": "钥匙",
+      "descs": [
+        "a key",
+        "a bunch of keys",
+        "a keychain",
+        "a set of keys"
+      ]
+    },
+    {
+      "name": "笔",
+      "descs": [
+        "a pen",
+        "a ballpoint pen",
+        "a pencil",
+        "a writing pen"
+      ]
+    },
+    {
+      "name": "本子",
+      "descs": [
+        "a paper notebook",
+        "a writing notebook",
+        "a notepad"
+      ]
+    },
+    {
+      "name": "纸巾",
+      "descs": [
+        "a tissue pack",
+        "tissue paper",
+        "a pack of tissues",
+        "a napkin"
+      ]
+    },
+    {
+      "name": "水杯",
+      "descs": [
+        "a water bottle",
+        "a drinking cup",
+        "a thermos bottle",
+        "a tumbler"
+      ]
+    },
+    {
+      "name": "雨伞",
+      "descs": [
+        "an umbrella",
+        "a folding umbrella",
+        "a compact umbrella"
+      ]
+    },
+    {
+      "name": "梳子",
+      "descs": [
+        "a comb",
+        "a hair comb",
+        "a hairbrush"
+      ]
+    },
+    {
+      "name": "镜子",
+      "descs": [
+        "a hand mirror",
+        "a small mirror",
+        "a makeup mirror",
+        "a compact mirror"
+      ]
+    },
+    {
+      "name": "指甲刀",
+      "descs": [
+        "a nail clipper",
+        "a nail cutter",
+        "a manicure tool"
+      ]
+    },
+    {
+      "name": "零食",
+      "descs": [
+        "a sealed snack packet",
+        "a bag of chips",
+        "a candy wrapper"
+      ]
+    },
+    {
+      "name": "药品",
+      "descs": [
+        "a medicine box with pills inside",
+        "a blister pack of tablets",
+        "a labeled pill bottle"
+      ]
+    },
+    {
+      "name": "护肤化妆",
+      "descs": [
+        "a cosmetic tube",
+        "a skin care bottle",
+        "a makeup compact case",
+        "a tube of hand cream"
+      ]
+    },
+    {
+      "name": "非物品",
+      "negative": true,
+      "descs": [
+        "a photo of a table",
+        "a photo of a room",
+        "an empty tray",
+        "a photo of a white board",
+        "a screenshot",
+        "a document",
+        "a text page",
+        "a form",
+        "a photo of a person",
+        "a face",
+        "hands",
+        "a fruit",
+        "a vegetable",
+        "a bare floor",
+        "a plain wall",
+        "an empty desk",
+        "a blurred photo",
+        "a shadow",
+        "a piece of cloth",
+        "a close-up of nothing",
+        "an empty surface",
+        "a blank background",
+        "a piece of gray fabric lying flat",
+        "a plain cloth backdrop",
+        "a portrait photo of a person alone",
+        "a pencil sketch on paper"
+      ]
+    }
+  ]
+}

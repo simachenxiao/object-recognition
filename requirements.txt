@@ -1,0 +1,20 @@
+# 直接依赖（本项目实际 import 的包）
+# 完整锁定版本见 requirements-lock.txt
+#
+# 安装：pip install -r requirements.txt
+
+# ── 核心：识别 ──────────────────────────────────
+torch==2.14.0                 # CPU 版实际为 2.14.0+cpu
+torchvision==0.29.0
+open_clip_torch==3.3.0        # CLIP / SigLIP2
+transformers==5.17.0          # ★ 仅 SigLIP2 需要（HF tokenizer）
+
+# ── L0 图像处理 ────────────────────────────────
+opencv-python==5.0.0.93
+pillow==12.3.0
+
+# ── L0 证件 OCR ────────────────────────────────
+rapidocr-onnxruntime==1.2.3
+
+# ── 部署 / 推理 ────────────────────────────────
+onnxruntime==1.30.0
