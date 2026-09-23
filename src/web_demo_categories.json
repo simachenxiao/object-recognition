@@ -6,381 +6,381 @@
   "categories": [
     {
       "name": "身份证",
-      "negative": false,
       "descs": [
         "身份证",
         "一张身份证",
         "居民身份证"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "驾驶证",
-      "negative": false,
       "descs": [
         "驾驶证",
         "驾照",
         "机动车驾驶证"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "行驶证",
-      "negative": false,
       "descs": [
         "行驶证",
         "车辆行驶证",
         "机动车行驶证"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "银行卡",
-      "negative": false,
       "descs": [
         "银行卡",
         "一张银行卡",
         "信用卡"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "公交卡",
-      "negative": false,
       "descs": [
         "公交卡",
         "交通卡",
         "公交IC卡"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "票据",
-      "negative": false,
       "descs": [
         "票据",
         "收据",
         "发票",
         "纸质票据"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "现金",
-      "negative": false,
       "descs": [
         "现金",
         "纸币",
         "一叠钞票",
         "人民币"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "手机",
-      "negative": false,
       "descs": [
         "手机",
         "智能手机",
         "一部手机"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "手机充电器",
-      "negative": false,
       "descs": [
         "手机充电器",
         "充电头",
         "电源适配器"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "充电宝",
-      "negative": false,
       "descs": [
         "充电宝",
         "移动电源"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "耳机",
-      "negative": false,
       "descs": [
         "耳机",
         "有线耳机",
         "蓝牙耳机"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "手表",
-      "negative": false,
       "descs": [
         "手表",
         "腕表",
         "机械表"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "平板电脑",
-      "negative": false,
       "descs": [
         "平板电脑",
         "平板",
         "iPad"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "笔记本电脑",
-      "negative": false,
       "descs": [
         "笔记本电脑",
         "笔记本",
         "一台笔记本电脑"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "U盘",
-      "negative": false,
       "descs": [
         "U盘",
         "闪存盘",
         "USB存储设备"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "电子烟",
-      "negative": false,
       "descs": [
         "电子烟",
         "电子烟杆"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "香烟",
-      "negative": false,
       "descs": [
         "香烟",
         "一包香烟",
         "烟盒"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "打火机",
-      "negative": false,
       "descs": [
         "打火机",
         "一次性打火机"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "钱包",
-      "negative": false,
       "descs": [
         "钱包",
         "皮钱包",
         "钱夹"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "手提包",
-      "negative": false,
       "descs": [
         "手提包",
         "女式手提包",
         "单肩包"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "背包",
-      "negative": false,
       "descs": [
         "背包",
         "双肩包",
         "书包"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "戒指",
-      "negative": false,
       "descs": [
         "戒指",
         "金戒指",
         "一枚戒指"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "项链",
-      "negative": false,
       "descs": [
         "项链",
         "金项链",
         "带吊坠的项链"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "手链手镯",
-      "negative": false,
       "descs": [
         "手链",
         "手镯",
         "一串手链"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "耳环",
-      "negative": false,
       "descs": [
         "耳环",
         "一对耳环",
         "耳钉"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "眼镜",
-      "negative": false,
       "descs": [
         "眼镜",
         "一副眼镜",
         "近视眼镜"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "帽子",
-      "negative": false,
       "descs": [
         "帽子",
         "鸭舌帽",
         "一顶帽子"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "围巾",
-      "negative": false,
       "descs": [
         "围巾",
         "戴在脖子上的围巾",
         "毛线围巾"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "皮带",
-      "negative": false,
       "descs": [
         "皮带",
         "腰带",
         "一条皮带"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "口罩",
-      "negative": false,
       "descs": [
         "口罩",
         "一次性口罩",
         "戴在脸上的口罩"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "钥匙",
-      "negative": false,
       "descs": [
         "钥匙",
         "一串钥匙",
         "一把钥匙"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "笔",
-      "negative": false,
       "descs": [
         "笔",
         "圆珠笔",
         "一支笔"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "本子",
-      "negative": false,
       "descs": [
         "本子",
         "笔记本",
         "一本记事本"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "纸巾",
-      "negative": false,
       "descs": [
         "纸巾",
         "一包纸巾",
         "抽纸"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "水杯",
-      "negative": false,
       "descs": [
         "水杯",
         "保温杯",
         "杯子"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "雨伞",
-      "negative": false,
       "descs": [
         "雨伞",
         "折叠伞",
         "一把伞"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "梳子",
-      "negative": false,
       "descs": [
         "梳子",
         "一把梳子"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "镜子",
-      "negative": false,
       "descs": [
         "镜子",
         "小镜子",
         "手持镜子"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "指甲刀",
-      "negative": false,
       "descs": [
         "指甲刀",
         "指甲剪"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "药品",
-      "negative": false,
       "descs": [
         "药品",
         "药盒",
         "一板药片",
         "药瓶"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "护肤化妆",
-      "negative": false,
       "descs": [
         "护肤品",
         "化妆品",
         "护手霜",
         "一支口红"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "零食",
-      "negative": false,
       "descs": [
         "零食",
         "一袋零食",
         "薯片",
         "糖果"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "非物品",
