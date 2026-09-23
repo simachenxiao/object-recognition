@@ -80,8 +80,40 @@ def libs():
         _LIB["Image"] = Image
         _LIB["ChineseCLIPModel"] = ChineseCLIPModel
         _LIB["ChineseCLIPProcessor"] = ChineseCLIPProcessor
-        print(f"[初始化] 就绪 ({time.time()-t:.1f}s)", flush=True)
+        apply_threads()
+        print(f"[初始化] 就绪 ({time.time()-t:.1f}s)"
+              f" ｜ torch 线程 {torch.get_num_threads()}", flush=True)
     return _LIB
+
+
+# ── torch 线程数 ─────────────────────────────────────────────
+# 实测（Ryzen 5 3500U，12 张图）：4 线程 635ms/张 → 8 线程 459ms/张，约 1.4x
+
+def resolve_threads(n=None):
+    """解析线程数：0 / 负数 / None / 非法值 → 自动用满逻辑核"""
+    if n is None:
+        n = (_config or {}).get("threads", DEFAULT_CONFIG.get("threads", 0))
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        n = 0
+    return n if n > 0 else (os.cpu_count() or 4)
+
+
+def apply_threads(n=None, verbose=False):
+    """把线程数应用到 torch。
+
+    torch 未导入 → 设 OMP/MKL 环境变量（torch 首次 import 会读）；
+    已导入 → 再调 set_num_threads。两条路都走，任何调用顺序都生效。
+    """
+    n = resolve_threads(n)
+    os.environ["OMP_NUM_THREADS"] = str(n)
+    os.environ["MKL_NUM_THREADS"] = str(n)
+    if "torch" in _LIB:
+        _LIB["torch"].set_num_threads(n)
+    if verbose:
+        print(f"[线程] torch 线程数 = {n}", flush=True)
+    return n
 
 
 # ══════════════════════════════════════════════════════════════
@@ -111,11 +143,19 @@ MAX_TEXT_LEN = 52
 CONFIG_FILE = os.path.join(APP_DIR, "web_demo_categories.json")
 # ★ 文本原型磁盘缓存目录：类别表不变时直接读文件，不用重新编码
 FEAT_CACHE_DIR = os.path.join(APP_DIR, ".feat_cache")
+# ★ 图像特征缓存目录：按【图片内容哈希】存 (1,512) 向量。
+#   只与模型/预处理有关，改分类或调阈值都不会失效 → 重跑同一批图秒出。
+IMG_CACHE_DIR = os.path.join(FEAT_CACHE_DIR, "img")
+IMG_CACHE_MAX = 5000          # 条数上限（每条约 2KB → 约 10MB）
 
 DEFAULT_CONFIG = {
     "thresholds": {"cnclip": 0.70},
     # ★ 相对间隔：(top1 - top2) / top1。低于此值 → 判为「两类别接近，待人工确认」
     "margin": 0.30,
+    # ★ torch 线程数：0 = 自动用满逻辑核（实测 4→8 线程提速约 1.4x）
+    "threads": 0,
+    # ★ 启动时后台预热模型（省掉首次点击等 ~10s）
+    "preload": True,
     "categories": [
         {"name": "身份证", "descs": ["身份证", "一张身份证", "居民身份证"], "negative": False},
         {"name": "驾驶证", "descs": ["驾驶证", "驾照", "机动车驾驶证"], "negative": False},
@@ -184,6 +224,8 @@ def load_config():
             # 补全缺失字段
             _config.setdefault("margin", 0.30)
             _config.setdefault("thresholds", {})
+            _config.setdefault("threads", DEFAULT_CONFIG.get("threads", 0))
+            _config.setdefault("preload", DEFAULT_CONFIG.get("preload", True))
             for k, v in BACKENDS.items():
                 _config["thresholds"].setdefault(k, v["th"])
             # 兼容：万一配置里只有旧后端名的阈值，迁移到 cnclip
@@ -206,6 +248,8 @@ def save_config(cfg):
         _config = cfg
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
+    apply_threads(verbose=True)      # 线程数改动即时生效（torch 已导入时）
+    return cfg
 
 
 # ══════════════════════════════════════════════════════════════
@@ -271,6 +315,59 @@ def encode_image(model, processor, pil_img):
         ii = processor(images=pil_img, return_tensors="pt")
         f = model.get_image_features(**ii).pooler_output
         return f / f.norm(dim=-1, keepdim=True)
+
+
+# ── 图像特征缓存（按图片内容哈希）────────────────────────────
+def img_cache_path(key, digest):
+    return os.path.join(IMG_CACHE_DIR, f"{key}_{digest}.pt")
+
+
+def encode_image_cached(model, processor, pil_img, key, digest=None):
+    """图像编码 + 内容哈希缓存 → (1, 512) 已归一化
+
+    ★ 图像特征只跟【模型 + 预处理】有关，与类别表/阈值无关，
+      所以改分类、调阈值都不会让它失效 —— 重跑同一批图直接命中。
+    """
+    torch = libs()["torch"]
+    path = img_cache_path(key, digest) if digest else None
+    if path and os.path.isfile(path):
+        try:
+            return torch.load(path, map_location="cpu", weights_only=True)
+        except Exception:
+            pass
+    f = encode_image(model, processor, pil_img)
+    if path:
+        try:
+            os.makedirs(IMG_CACHE_DIR, exist_ok=True)
+            with _IMG_CACHE_LOCK:
+                torch.save(f, path)
+        except Exception:
+            pass
+    return f
+
+
+def clean_img_cache(max_keep=IMG_CACHE_MAX, verbose=True):
+    """图像特征缓存按修改时间保留最新 max_keep 条，其余删除"""
+    if not os.path.isdir(IMG_CACHE_DIR):
+        return 0
+    files = []
+    for f in os.listdir(IMG_CACHE_DIR):
+        p = os.path.join(IMG_CACHE_DIR, f)
+        if os.path.isfile(p) and f.endswith(".pt"):
+            files.append((os.path.getmtime(p), p))
+    if len(files) <= max_keep:
+        return 0
+    files.sort(reverse=True)
+    removed = 0
+    for _, p in files[max_keep:]:
+        try:
+            os.remove(p)
+            removed += 1
+        except OSError:
+            pass
+    if verbose and removed:
+        print(f"[缓存] 图像特征超出 {max_keep} 条，清理最旧 {removed} 条", flush=True)
+    return removed
 
 
 def feat_signature(key):
@@ -409,10 +506,15 @@ def scores(sim, model, cfg):
 
 
 _infer_lock = threading.Lock()
+_IMG_CACHE_LOCK = threading.Lock()
 
 
-def infer_one(pil_img, key):
-    """对单张图做推理，返回结构化结果"""
+def infer_one(pil_img, key, digest=None):
+    """对单张图做推理，返回结构化结果
+
+    digest：图片内容哈希（可选）。给了就启用图像特征缓存，
+            同一张图第二次起不必再跑 ViT。
+    """
     model, processor, cfg = get_model(key)
     TF, names, is_neg = get_features(key)
     th = float(_config["thresholds"].get(key, cfg["th"]))
@@ -420,7 +522,8 @@ def infer_one(pil_img, key):
 
     with _infer_lock:
         t = time.time()
-        f = encode_image(model, processor, pil_img)
+        hit = bool(digest) and os.path.isfile(img_cache_path(key, digest))
+        f = encode_image_cached(model, processor, pil_img, key, digest)
         with libs()["torch"].no_grad():
             pr = scores(f @ TF.T, model, cfg)[0]
         ms = (time.time() - t) * 1000
@@ -430,7 +533,8 @@ def infer_one(pil_img, key):
     if not item_idx:
         return {"verdict": "★无类别", "reason": "nocat", "latency_ms": round(ms, 1),
                 "topk": [], "neg_score": 0.0, "threshold": th,
-                "category": None, "confidence": 0.0, "margin": 0.0}
+                "category": None, "confidence": 0.0, "margin": 0.0,
+                "cached": hit}
 
     ip = pr[item_idx]
     order = ip.argsort(descending=True)
@@ -461,6 +565,7 @@ def infer_one(pil_img, key):
         "topk": topk,
         "reason": reason,
         "latency_ms": round(ms, 1),
+        "cached": hit,
     }
 
 
@@ -528,6 +633,8 @@ class Handler(BaseHTTPRequestHandler):
                                  "th": float(_config["thresholds"].get(k, v["th"])),
                                  "note": v["note"]} for k, v in BACKENDS.items()},
                 "loaded": sorted(_MODELS.keys()),
+                "threads_effective": resolve_threads(),
+                "cpu_count": os.cpu_count() or 1,
                 "model_dir": CNCLIP_LOCAL_DIR if os.path.isdir(CNCLIP_LOCAL_DIR)
                              else CNCLIP_REPO,
             })
@@ -543,12 +650,14 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(cfg, dict):
                     return self._send(400, {"error": "config 格式错误"})
                 save_config(cfg)
-                return self._send(200, {"ok": True, "config": _config})
+                return self._send(200, {"ok": True, "config": _config,
+                                        "threads_effective": resolve_threads()})
 
             if p == "/api/reset":
                 import copy
                 save_config(copy.deepcopy(DEFAULT_CONFIG))
-                return self._send(200, {"ok": True, "config": _config})
+                return self._send(200, {"ok": True, "config": _config,
+                                        "threads_effective": resolve_threads()})
 
             if p == "/api/preload":
                 body = self._read_json()
@@ -586,6 +695,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 Image = libs()["Image"]
                 raw = base64.b64decode(item["data"].split(",")[-1])
+                rec["digest"] = hashlib.sha256(raw).hexdigest()[:16]
                 img = Image.open(io.BytesIO(raw)).convert("RGB")
                 rec["w"], rec["h"] = img.size
             except Exception as e:
@@ -594,13 +704,13 @@ class Handler(BaseHTTPRequestHandler):
                 continue
             for k in keys:
                 try:
-                    rec["results"][k] = infer_one(img, k)
+                    rec["results"][k] = infer_one(img, k, rec.get("digest"))
                 except Exception as e:
                     rec["results"][k] = {
                         "verdict": "★错误", "category": None, "confidence": 0.0,
                         "margin": 0.0, "neg_score": 0.0, "threshold": 0.0,
                         "topk": [], "reason": f"{type(e).__name__}: {e}",
-                        "latency_ms": 0.0,
+                        "latency_ms": 0.0, "cached": False,
                     }
             out.append(rec)
         self._send(200, {"ok": True, "backends": keys, "items": out})
@@ -855,7 +965,8 @@ tbody tr:last-child td{border-bottom:0}
 .fname{max-width:280px;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap;font-size:12px;color:var(--tp)}
 .mono{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums}
-.top3{font-size:10.5px;color:var(--tq);line-height:1.55;font-family:var(--mono)}
+.top3{font-size:10.5px;color:var(--tq);line-height:1.55;font-family:var(--mono);
+  min-width:180px;white-space:normal}
 .rowbad{background:rgba(220,38,38,.045)}
 .dark .rowbad{background:rgba(248,113,113,.06)}
 .rowwarn{background:rgba(234,88,12,.045)}
@@ -1090,9 +1201,21 @@ tbody tr:last-child td{border-bottom:0}
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <button class="btn btn-sm" id="btnPreload"><span data-i="zap"></span>预加载模型</button>
+        <label class="negbox" style="gap:5px">
+          <input type="checkbox" id="preloadOn">启动时预热
+        </label>
         <span style="font-size:11px;color:var(--tt)" id="preloadMsg"></span>
+      </div>
+
+      <div>
+        <div class="cat-lbl" style="margin-bottom:6px">torch 线程数</div>
+        <input type="number" id="threads" step="1" min="0" max="256" style="width:100%">
+        <div class="dsec-note" style="margin-top:6px">
+          <b>0 = 自动用满逻辑核</b>（推荐）。实测 4→8 线程提速约 1.4x，保存后即时生效、无需重启。
+          本机逻辑核：<b id="cpuHint">?</b>。
+        </div>
       </div>
     </div>
 
@@ -1185,7 +1308,7 @@ function initTheme(){
 /* ══════════════════════════════════════════════════════════════
    状态
    ══════════════════════════════════════════════════════════════ */
-let CFG=null, BACKENDS={}, LOADED=[], BACKEND='cnclip';
+let CFG=null, BACKENDS={}, LOADED=[], BACKEND='cnclip', EFF_THREADS=0;
 let PRELOADING=null;   // null=未在预热 / 'cnclip'=正在预热的后端
 let FILES=[];        // {name, dataUrl, w, h}
 let ITEMS=[];        // 识别结果
@@ -1224,6 +1347,8 @@ async function api(path,body){
 async function loadConfig(){
   const d=await api('/api/config');
   CFG=d.config; BACKENDS=d.backends; LOADED=d.loaded||[];
+  EFF_THREADS=d.threads_effective||0;
+  const ch=$('#cpuHint'); if(ch) ch.textContent=d.cpu_count||'?';
   // 本分支只有一个后端（Chinese-CLIP），不再读 localStorage
   BACKEND = Object.keys(BACKENDS)[0] || 'cnclip';
   renderStatusbar(); renderCats(); fillForm();
@@ -1234,6 +1359,8 @@ async function loadConfig(){
 function fillForm(){
   $('#thClip').value   = CFG.thresholds.cnclip ?? 0.70;
   $('#margin').value   = CFG.margin;
+  $('#threads').value    = CFG.threads ?? 0;
+  $('#preloadOn').checked = CFG.preload !== false;
   document.querySelectorAll('#backendSeg button').forEach(b=>
     b.classList.toggle('on', b.dataset.b===BACKEND));
   const bd=BACKENDS[BACKEND];
@@ -1249,6 +1376,8 @@ function collectForm(){
   return {
     thresholds:{cnclip:parseFloat($('#thClip').value)||0.70},
     margin:parseFloat($('#margin').value),
+    threads:parseInt($('#threads').value,10)||0,
+    preload:$('#preloadOn').checked,
     categories:cats
   };
 }
@@ -1280,13 +1409,16 @@ async function saveConfig(){
   if(!cfg.categories.length) return toast('至少保留一个分类');
   if(!cfg.categories.some(c=>c.negative)) toast('提示：没有负类，未知物品会被误接受');
   const d=await api('/api/config',{config:cfg});
-  CFG=d.config; renderCats(); renderStatusbar();
-  toast('配置已保存 · 特征缓存已刷新');
+  CFG=d.config; EFF_THREADS=d.threads_effective||EFF_THREADS;
+  renderCats(); renderStatusbar();
+  toast('配置已保存 · 特征缓存已刷新'+
+        (CFG.threads>0?(' · 线程 '+CFG.threads):(' · 线程自动 '+EFF_THREADS)));
 }
 
 async function resetConfig(){
   const d=await api('/api/reset',{});
-  CFG=d.config; renderCats(); fillForm(); renderStatusbar();
+  CFG=d.config; EFF_THREADS=d.threads_effective||EFF_THREADS;
+  renderCats(); fillForm(); renderStatusbar();
   toast('已恢复默认配置');
 }
 
@@ -1351,7 +1483,8 @@ function renderStatusbar(){
     <span class="badge b-dim">${cats.length-neg} 个物品类</span>
     <span class="badge ${neg?'b-green':'b-rose'}">${neg?'负类 '+neg:'⚠ 无负类'}</span>
     <span class="badge b-dim">阈值 ${CFG.thresholds.cnclip ?? CFG.thresholds.clip}</span>
-    <span class="badge b-dim">margin ${CFG.margin}</span>`;
+    <span class="badge b-dim">margin ${CFG.margin}</span>
+    <span class="badge b-dim" title="torch 线程数（0=自动用满逻辑核）">线程 ${EFF_THREADS||(CFG.threads>0?CFG.threads:'自动')}</span>`;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -1561,9 +1694,9 @@ function renderResults(){
   $('#resCount').textContent=`共 ${ITEMS.length} 张，当前显示 ${rows.length} 张`;
 
   let html='<table><thead><tr><th></th><th>文件名</th><th>真值</th>';
-  RES_KEYS.forEach(k=>html+=`<th colspan="3">${esc(BACKENDS[k]?.label||k)}</th>`);
+  RES_KEYS.forEach(k=>html+=`<th colspan="4">${esc(BACKENDS[k]?.label||k)}</th>`);
   html+='</tr><tr><th></th><th></th><th></th>';
-  RES_KEYS.forEach(()=>html+='<th>判定</th><th>置信度</th><th>耗时</th>');
+  RES_KEYS.forEach(()=>html+='<th>判定</th><th>置信度</th><th>耗时</th><th>Top3</th>');
   html+='</tr></thead><tbody>';
 
   rows.forEach(it=>{
@@ -1581,9 +1714,9 @@ function renderResults(){
 
     RES_KEYS.forEach(k=>{
       const r=it.results?.[k];
-      if(!r){ html+='<td colspan="3" style="color:var(--tq)">—</td>'; return; }
+      if(!r){ html+='<td colspan="4" style="color:var(--tq)">—</td>'; return; }
       if(r.reason && r.verdict.startsWith('★错误')){
-        html+=`<td colspan="3"><span class="badge b-rose">${esc(r.reason)}</span></td>`; return;
+        html+=`<td colspan="4"><span class="badge b-rose">${esc(r.reason)}</span></td>`; return;
       }
       let badge;
       if(r.category===null){
@@ -1595,9 +1728,12 @@ function renderResults(){
         badge=`<span class="badge ${bad?'b-rose':hit?'b-green':catColor(r.category)}">${esc(r.category)}</span>`;
       }
       const conf = r.confidence>=0.01 ? r.confidence.toFixed(4) : r.confidence.toExponential(2);
+      // Top3：三候选用 + 连接，单行展示（窄屏自动换行）
+      const tk = (r.topk||[]).map(([n,v])=>`${esc(n)} ${(v*100).toFixed(1)}%`).join(' + ') || '—';
       html+=`<td>${badge}</td>
              <td class="mono" style="color:var(--ts)">${conf}</td>
-             <td class="mono" style="color:var(--tq)">${r.latency_ms}ms</td>`;
+             <td class="mono" style="color:var(--tq)" title="${r.cached?'命中图像特征缓存，未跑 ViT':'实际跑了 ViT'}">${r.cached?'⚡':''}${r.latency_ms}ms</td>
+             <td class="top3">${tk}</td>`;
     });
     html+='</tr>';
   });
@@ -1760,7 +1896,9 @@ def main():
     args = ap.parse_args()
 
     load_config()
+    apply_threads()          # 在 torch 导入前先把 OMP/MKL 设好
     clean_feat_cache()
+    clean_img_cache()
     n_cat = len([c for c in _config["categories"] if not c.get("negative")])
     n_neg = len([c for c in _config["categories"] if c.get("negative")])
 
@@ -1769,6 +1907,10 @@ def main():
     print("=" * 62)
     print(f"  分类      : {n_cat} 个物品类 + {n_neg} 个负类")
     print(f"  配置文件  : {CONFIG_FILE}")
+    print(f"  线程数    : {resolve_threads()}"
+          f"（0=自动；OMP_NUM_THREADS={os.environ.get('OMP_NUM_THREADS')}）")
+    print(f"  图像缓存  : {IMG_CACHE_DIR}")
+    print(f"  启动预热  : {'开' if _config.get('preload', True) else '关'}")
     print(f"  HF_HOME   : {os.environ.get('HF_HOME', '(默认)')}")
     print(f"  离线模式  : {os.environ.get('HF_HUB_OFFLINE', '0')}")
     print()
@@ -1784,6 +1926,19 @@ def main():
         print(f"         换个端口试试:  python web_demo.py --port 8080")
         print()
         sys.exit(1)
+
+    if _config.get("preload", True):
+        def _warmup():
+            try:
+                for k in BACKENDS:
+                    get_model(k)
+                    get_features(k)
+                print("[预热] 模型 + 类别原型就绪", flush=True)
+            except Exception as e:
+                print(f"[预热] 失败（不影响使用）：{type(e).__name__}: {e}",
+                      flush=True)
+        threading.Thread(target=_warmup, daemon=True, name="warmup").start()
+        print("  [预热] 后台加载模型中 …", flush=True)
 
     if not args.no_browser:
         threading.Timer(0.8, lambda: webbrowser.open(

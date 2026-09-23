@@ -208,6 +208,14 @@ def load(default_classes=None, default_th=None, default_margin=0.30,
             except (TypeError, ValueError):
                 warnings.append(f"margin={data['margin']!r} 不是数字，已忽略")
 
+    # ── torch 线程数（0 = 自动用满逻辑核）────────────────────
+    threads = 0
+    if data:
+        try:
+            threads = int(data.get("threads", 0) or 0)
+        except (TypeError, ValueError):
+            warnings.append(f"threads={data.get('threads')!r} 不是整数，已忽略")
+
     n_item = len([k for k in classes if k not in negatives])
     if n_item == 0:
         if not classes and not default_classes and not data:
@@ -237,6 +245,7 @@ def load(default_classes=None, default_th=None, default_margin=0.30,
         "neg_label": negatives[0] if negatives else None,
         "th": th,
         "margin": margin,
+        "threads": threads,
         "source": src,
         "path": used_path,
         "warnings": warnings,

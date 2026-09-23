@@ -62,6 +62,7 @@ def apply_config(c):
     LABELS = [k for k in CLASSES if k not in NEG]
     TH = dict(c["th"])
     MARGIN = c["margin"]
+    CM.apply_threads(c.get("threads"))     # 配置里的 torch 线程数（0=自动）
     return c
 
 

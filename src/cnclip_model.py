@@ -40,6 +40,31 @@ MAX_TEXT_LEN = 52
 
 _cache = {}
 
+# ── torch 线程数（0 = 自动用满逻辑核）────────────────────────
+# 实测（Ryzen 5 3500U）：4 线程 635ms/张 → 8 线程 459ms/张，约 1.4x
+THREADS = 0
+
+
+def apply_threads(n=None):
+    """设置 torch 线程数；0/None/负数/非法值 → 自动用满逻辑核。
+
+    可在 import torch 之前调用（只设 OMP/MKL 环境变量），
+    load_model() 里会再兜底调一次 set_num_threads。
+    """
+    global THREADS
+    if n is None:
+        n = THREADS
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        n = 0
+    THREADS = n if n > 0 else (os.cpu_count() or 4)
+    os.environ["OMP_NUM_THREADS"] = str(THREADS)
+    os.environ["MKL_NUM_THREADS"] = str(THREADS)
+    if _cache.get("torch") is not None:
+        _cache["torch"].set_num_threads(THREADS)
+    return THREADS
+
 
 def libs():
     """惰性导入重型依赖"""
@@ -72,6 +97,7 @@ def load_model(key="cnclip", verbose=True):
     if ck in _cache:
         return _cache[ck]
     L = libs()
+    apply_threads()
     src, where = model_source()
     if verbose:
         print(f"  加载 {BACKENDS[key]['label']} ← {where} ...", end="", flush=True)

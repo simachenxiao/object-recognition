@@ -3,6 +3,8 @@
     "cnclip": 0.7
   },
   "margin": 0.3,
+  "threads": 0,
+  "preload": true,
   "categories": [
     {
       "name": "身份证",
