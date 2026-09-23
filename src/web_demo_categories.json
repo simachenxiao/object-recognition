@@ -1,393 +1,364 @@
 {
   "thresholds": {
-    "clip": 0.7,
-    "siglip": 0.0005
+    "cnclip": 0.7
   },
   "margin": 0.3,
   "categories": [
     {
       "name": "身份证",
       "descs": [
-        "an identity card",
-        "a Chinese resident ID card",
-        "a government issued ID card",
-        "a small plastic identification card"
+        "身份证",
+        "一张身份证",
+        "居民身份证"
       ]
     },
     {
       "name": "驾驶证",
       "descs": [
-        "a driver license",
-        "a driving licence",
-        "a motor vehicle driver license"
+        "驾驶证",
+        "驾照",
+        "机动车驾驶证"
       ]
     },
     {
       "name": "行驶证",
       "descs": [
-        "a vehicle registration certificate",
-        "a vehicle license booklet",
-        "a car registration paper"
+        "行驶证",
+        "车辆行驶证",
+        "机动车行驶证"
       ]
     },
     {
       "name": "银行卡",
       "descs": [
-        "a bank card",
-        "a credit card",
-        "a debit card",
-        "a plastic payment card"
+        "银行卡",
+        "一张银行卡",
+        "信用卡"
       ]
     },
     {
       "name": "公交卡",
       "descs": [
-        "a transit card",
-        "a bus pass card",
-        "a public transport smart card",
-        "a bus card"
+        "公交卡",
+        "交通卡",
+        "公交IC卡"
       ]
     },
     {
       "name": "票据",
       "descs": [
-        "a receipt",
-        "an invoice",
-        "a paper ticket",
-        "a printed voucher"
+        "票据",
+        "收据",
+        "发票",
+        "纸质票据"
       ]
     },
     {
       "name": "现金",
       "descs": [
-        "paper money",
-        "banknotes",
-        "a stack of cash",
-        "Chinese yuan banknotes",
-        "coins"
+        "现金",
+        "纸币",
+        "一叠钞票",
+        "人民币"
       ]
     },
     {
       "name": "手机",
       "descs": [
-        "a mobile phone",
-        "a smartphone",
-        "a cell phone"
+        "手机",
+        "智能手机",
+        "一部手机"
       ]
     },
     {
       "name": "手机充电器",
       "descs": [
-        "a phone charger",
-        "a wall charger",
-        "a power adapter",
-        "a charging brick"
+        "手机充电器",
+        "充电头",
+        "电源适配器"
       ]
     },
     {
       "name": "充电宝",
       "descs": [
-        "a power bank",
-        "a portable battery charger",
-        "a battery pack"
+        "充电宝",
+        "移动电源"
       ]
     },
     {
       "name": "耳机",
       "descs": [
-        "earphones",
-        "headphones",
-        "earbuds",
-        "a headset"
+        "耳机",
+        "有线耳机",
+        "蓝牙耳机"
       ]
     },
     {
       "name": "手表",
       "descs": [
-        "a wristwatch",
-        "a watch",
-        "a mechanical watch"
+        "手表",
+        "腕表",
+        "机械表"
       ]
     },
     {
       "name": "平板电脑",
       "descs": [
-        "a tablet computer",
-        "an iPad",
-        "a tablet device"
+        "平板电脑",
+        "平板",
+        "iPad"
       ]
     },
     {
       "name": "笔记本电脑",
       "descs": [
-        "a laptop computer",
-        "a notebook computer",
-        "a laptop",
-        "a closed laptop"
+        "笔记本电脑",
+        "笔记本",
+        "一台笔记本电脑"
       ]
     },
     {
       "name": "U盘",
       "descs": [
-        "a USB flash drive",
-        "a thumb drive",
-        "a USB stick"
+        "U盘",
+        "闪存盘",
+        "USB存储设备"
       ]
     },
     {
       "name": "电子烟",
       "descs": [
-        "an electronic cigarette",
-        "a vape pen",
-        "a vape device"
+        "电子烟",
+        "电子烟杆"
       ]
     },
     {
       "name": "香烟",
       "descs": [
-        "a pack of cigarettes",
-        "a cigarette pack",
-        "a cigarette box"
+        "香烟",
+        "一包香烟",
+        "烟盒"
       ]
     },
     {
       "name": "打火机",
       "descs": [
-        "a lighter",
-        "a cigarette lighter",
-        "a disposable lighter"
+        "打火机",
+        "一次性打火机"
       ]
     },
     {
       "name": "钱包",
       "descs": [
-        "a wallet",
-        "a leather wallet",
-        "a billfold"
+        "钱包",
+        "皮钱包",
+        "钱夹"
       ]
     },
     {
       "name": "手提包",
       "descs": [
-        "a handbag",
-        "a tote bag",
-        "a shoulder bag",
-        "a purse"
+        "手提包",
+        "女式手提包",
+        "单肩包"
       ]
     },
     {
       "name": "背包",
       "descs": [
-        "a backpack",
-        "a knapsack",
-        "a rucksack",
-        "a school bag"
+        "背包",
+        "双肩包",
+        "书包"
       ]
     },
     {
       "name": "戒指",
       "descs": [
-        "a ring",
-        "a gold ring",
-        "a diamond ring"
+        "戒指",
+        "金戒指",
+        "一枚戒指"
       ]
     },
     {
       "name": "项链",
       "descs": [
-        "a necklace",
-        "a gold chain",
-        "a pendant necklace"
+        "项链",
+        "金项链",
+        "带吊坠的项链"
       ]
     },
     {
       "name": "手链手镯",
       "descs": [
-        "a bracelet",
-        "a bangle",
-        "a wrist chain",
-        "a beaded bracelet"
+        "手链",
+        "手镯",
+        "一串手链"
       ]
     },
     {
       "name": "耳环",
       "descs": [
-        "an earring",
-        "a pair of earrings",
-        "an ear stud"
+        "耳环",
+        "一对耳环",
+        "耳钉"
       ]
     },
     {
       "name": "眼镜",
       "descs": [
-        "eyeglasses worn on a face",
-        "a pair of glasses on someone's face",
-        "spectacles"
+        "眼镜",
+        "一副眼镜",
+        "近视眼镜"
       ]
     },
     {
       "name": "帽子",
       "descs": [
-        "a hat worn on a person's head",
-        "a cap on someone's head",
-        "a baseball cap"
+        "帽子",
+        "鸭舌帽",
+        "一顶帽子"
       ]
     },
     {
       "name": "围巾",
       "descs": [
-        "a scarf wrapped around a person's neck",
-        "a knitted scarf worn on a person",
-        "a neck scarf on someone"
+        "围巾",
+        "戴在脖子上的围巾",
+        "毛线围巾"
       ]
     },
     {
       "name": "皮带",
       "descs": [
-        "a belt",
-        "a leather belt",
-        "a waist belt"
+        "皮带",
+        "腰带",
+        "一条皮带"
       ]
     },
     {
       "name": "口罩",
       "descs": [
-        "a face mask worn on a person's face",
-        "a surgical mask covering a mouth"
+        "口罩",
+        "一次性口罩",
+        "戴在脸上的口罩"
       ]
     },
     {
       "name": "钥匙",
       "descs": [
-        "a key",
-        "a bunch of keys",
-        "a keychain",
-        "a set of keys"
+        "钥匙",
+        "一串钥匙",
+        "一把钥匙"
       ]
     },
     {
       "name": "笔",
       "descs": [
-        "a pen",
-        "a ballpoint pen",
-        "a pencil",
-        "a writing pen"
+        "笔",
+        "圆珠笔",
+        "一支笔"
       ]
     },
     {
       "name": "本子",
       "descs": [
-        "a paper notebook",
-        "a writing notebook",
-        "a notepad"
+        "本子",
+        "笔记本",
+        "一本记事本"
       ]
     },
     {
       "name": "纸巾",
       "descs": [
-        "a tissue pack",
-        "tissue paper",
-        "a pack of tissues",
-        "a napkin"
+        "纸巾",
+        "一包纸巾",
+        "抽纸"
       ]
     },
     {
       "name": "水杯",
       "descs": [
-        "a water bottle",
-        "a drinking cup",
-        "a thermos bottle",
-        "a tumbler"
+        "水杯",
+        "保温杯",
+        "杯子"
       ]
     },
     {
       "name": "雨伞",
       "descs": [
-        "an umbrella",
-        "a folding umbrella",
-        "a compact umbrella"
+        "雨伞",
+        "折叠伞",
+        "一把伞"
       ]
     },
     {
       "name": "梳子",
       "descs": [
-        "a comb",
-        "a hair comb",
-        "a hairbrush"
+        "梳子",
+        "一把梳子"
       ]
     },
     {
       "name": "镜子",
       "descs": [
-        "a hand mirror",
-        "a small mirror",
-        "a makeup mirror",
-        "a compact mirror"
+        "镜子",
+        "小镜子",
+        "手持镜子"
       ]
     },
     {
       "name": "指甲刀",
       "descs": [
-        "a nail clipper",
-        "a nail cutter",
-        "a manicure tool"
-      ]
-    },
-    {
-      "name": "零食",
-      "descs": [
-        "a sealed snack packet",
-        "a bag of chips",
-        "a candy wrapper"
+        "指甲刀",
+        "指甲剪"
       ]
     },
     {
       "name": "药品",
       "descs": [
-        "a medicine box with pills inside",
-        "a blister pack of tablets",
-        "a labeled pill bottle"
+        "药品",
+        "药盒",
+        "一板药片",
+        "药瓶"
       ]
     },
     {
       "name": "护肤化妆",
       "descs": [
-        "a cosmetic tube",
-        "a skin care bottle",
-        "a makeup compact case",
-        "a tube of hand cream"
+        "护肤品",
+        "化妆品",
+        "护手霜",
+        "一支口红"
+      ]
+    },
+    {
+      "name": "零食",
+      "descs": [
+        "零食",
+        "一袋零食",
+        "薯片",
+        "糖果"
       ]
     },
     {
       "name": "非物品",
       "negative": true,
       "descs": [
-        "a photo of a table",
-        "a photo of a room",
-        "an empty tray",
-        "a photo of a white board",
-        "a screenshot",
-        "a document",
-        "a text page",
-        "a form",
-        "a photo of a person",
-        "a face",
-        "hands",
-        "a fruit",
-        "a vegetable",
-        "a bare floor",
-        "a plain wall",
-        "an empty desk",
-        "a blurred photo",
-        "a shadow",
-        "a piece of cloth",
-        "a close-up of nothing",
-        "an empty surface",
-        "a blank background",
-        "a piece of gray fabric lying flat",
-        "a plain cloth backdrop",
-        "a portrait photo of a person alone",
-        "a pencil sketch on paper"
+        "桌子",
+        "空托盘",
+        "白板",
+        "屏幕截图",
+        "一份文件",
+        "一页文字",
+        "表格",
+        "人脸",
+        "一双手",
+        "水果",
+        "蔬菜",
+        "灰色布料",
+        "一面墙",
+        "空白背景",
+        "一张素描画"
       ]
     }
   ]

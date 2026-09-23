@@ -1,7 +1,10 @@
-# 随身物品识别 —— 项目环境说明
+# 随身物品识别 —— 项目环境说明（Chinese-CLIP 版）
 
-> 零样本识别（CLIP / SigLIP2）+ 后续 L0 差分切分、L2 VLM 兜底
+> 零样本识别（**Chinese-CLIP ViT-B/16**）+ 后续 L0 差分切分、L2 VLM 兜底
 > 目标平台：Windows（开发）→ ARM/RK3588（部署）
+>
+> **本分支（`dev-chinese`）只用 Chinese-CLIP，类别描述用中文维护。**
+> 英文 CLIP / SigLIP2 版本见 `dev-english` 分支。
 
 ---
 
@@ -15,7 +18,8 @@ setup_env.bat
 
 做三件事：创建 `.venv` → 升级 pip → 安装 `requirements.txt`。
 
-> ⚠️ 如果 `.hf\hub` 不存在，首次运行会从镜像下载约 **3.5GB** 模型权重。
+> ⚠️ 如果 `<项目根>\.hf\chinese-clip-vit-base-patch16\` 不存在，
+> 首次运行会从镜像下载约 **719MB** 模型权重。
 
 ### 每次开工
 
@@ -45,26 +49,26 @@ run_web.bat --no-browser
 ```
 物品识别想法/
 ├── .venv/                        # 虚拟环境（不纳入版本控制）
-├── .hf/hub/                      # ★ HF 模型缓存（2.0GB，随项目走）
-│   ├── models--laion--CLIP-ViT-B-32-laion2B-s34B-b79K/     578MB
-│   └── models--timm--ViT-B-32-SigLIP2-256/                1.5GB
+├── .hf/                          # ★ 模型缓存（719MB，随项目走）
+│   └── chinese-clip-vit-base-patch16/
+│       ├── pytorch_model.bin     #     718MB
+│       ├── config.json  vocab.txt  preprocessor_config.json
 ├── .pi/                          # 设计规范 skill
 │
 ├── README.md                     # ★ 本文件（入口）
 ├── docs/
-│   ├── 方案_零样本识别_CLIP与SigLIP2.md   # ★ 主方案文档
+│   ├── 方案_零样本识别_CLIP与SigLIP2.md   # 主方案文档（含英文后端方案）
 │   └── 实验记录.md                        # ★ 六组实测：类别表容量与成本
 │
 ├── src/                          # ★ 全部代码
-│   ├── 01_clip_zeroshot.py       #    零样本分类（命令行，双后端）
+│   ├── 01_clip_zeroshot.py       #    零样本分类（命令行）
 │   ├── 02_eval_tray.py           #    批量准确率评测（命令行）
 │   ├── web_demo.py               #    Web Demo（上传/分类管理/准确率）
+│   ├── cnclip_model.py           #    Chinese-CLIP 封装（两个命令行脚本共用）
 │   ├── cfg_source.py             #    共享配置加载器（单一数据源）
-│   ├── fix_hf_cache.py           #    HF 缓存修复工具（见 §6.1）
-│   └── web_demo_categories.json  # ★ 统一配置（单一数据源）
+│   └── web_demo_categories.json  # ★ 统一配置（中文描述）
 ├── src/.feat_cache/              # ★ 文本原型磁盘缓存（可删，自动重建）
-│   ├── clip_<指纹>.pt            #     88 KB
-│   └── siglip_<指纹>.pt          #    131 KB
+│   └── cnclip_<指纹>.pt          #     88 KB
 │
 ├── env.bat / env.ps1             # 激活环境（每次开工用）
 ├── setup_env.bat                 # 一键搭建（新机器用）
@@ -109,8 +113,8 @@ run_web.bat
 
 | 分组 | 可调项 |
 |---|---|
-| **模型与判定** | 后端选择（CLIP / SigLIP2 / 双后端对比）· CLIP 阈值 · SigLIP2 阈值 · 相对间隔 margin · 预加载模型 |
-| **识别分类** | 增删分类 · 改分类名 · 编辑英文描述（每行一条）· 勾选**负类** · 保存 / 恢复默认 |
+| **模型与判定** | 当前模型（Chinese-CLIP ViT-B/16）· 识判阈值 · 相对间隔 margin · 预加载模型 |
+| **识别分类** | 增删分类 · 改分类名 · 编辑**中文描述**（每行一条）· 勾选**负类** · 保存 / 恢复默认 |
 
 保存后写入 `web_demo_categories.json`，**自动失效特征缓存**，无需重启服务。
 判定失败的图会标红（错分）或标橙（拒识），异常单独展示原因。
@@ -130,13 +134,14 @@ run_web.bat
 
 当前 42 类的实测（28 张图 / 8 个类别）：
 
-| 后端 | 物品正确 | 误拒 | 错分 | 拒识 | **误接受** |
+| 模型 | 物品正确 | 误拒 | 错分 | 拒识 | **误接受** |
 |---|---|---|---|---|---|
-| CLIP | 21/28 = 75% | 7 | **0** | 7/7 | **0** |
-| SigLIP2 | **25/28 = 89.3%** | 1 | 2 | 7/7 | **0** |
+| **Chinese-CLIP（本分支）** | 21/28 = 75% | 7 | **0** | 7/7 | **0** |
+| 英文 CLIP（dev-english） | 21/28 = 75% | 7 | 0 | 7/7 | 0 |
 
-> **按「不认错优先」原则，CLIP 反而更稳** —— 它 0 错分，而 SigLIP2 有 2 例错分。
-> **错分（登记成别的物品）比误拒（待人工确认）危险得多。**
+> **五项指标完全相同** —— 中文描述可以无损替代英文描述。
+> （`dev-english` 上 SigLIP2 能到 89.3%，但有 **2 例错分**；
+> 按「不认错优先」原则，0 错分的模型更稳 —— 错分比误拒危险得多。）
 
 ### 真值怎么来的
 
@@ -155,11 +160,14 @@ n01_tray.png → 真值 = 非物品（期望被拒识）
 | 项 | 实测 |
 |---|---|
 | 服务启动（端口可连） | **约 1 秒**（torch 惰性导入） |
-| 首次模型加载 | CLIP ~2s，SigLIP2 ~7s（后续常驻内存） |
-| 首次建原形（42 类） | CLIP 14.5s，SigLIP2 27.5s —— **仅此一次，自动落盘** |
-| 重启后建原形 | **0s**（读 `.feat_cache`） |
-| 单张推理 | **59 ms（CLIP）/ 80 ms（SigLIP2）**—— 与类别数无关 |
-| 28 张×双后端 | 预热后 **约 2.3s** |
+| 首次模型加载 | **0.3s**（本地目录） |
+| 首次建原型（43 类） | **约 5~8s** —— 仅此一次，自动落盘 |
+| 重启后建原型 | **0s**（读 `.feat_cache`） |
+| 单张推理 | **约 210~300 ms** —— 与类别数无关 |
+| 28 张 | 预热后 **约 7s** |
+
+> Chinese-CLIP 是 ViT-B/**16**（patch token 196 个），比英文 CLIP 的 ViT-B/**32**（49 个）慢约 2 倍，
+> 但**建原型快约 3 倍**（中文分词更紧凑）。准确率两者完全相同。
 
 ### ★ 页面自动预热 + 文本原型缓存
 
@@ -168,25 +176,23 @@ n01_tray.png → 真值 = 非物品（期望被拒识）
 ```
 打开页面  →  后台 POST /api/preload  →  加载模型 + 读/建原型
               ↓
-          状态条显示「正在后台预热 clip …」
+          状态条显示「正在后台预热 cnclip …」
               ↓
 用户选完图时模型已就绪，点识别直接出结果
 ```
-
-切换后端（配置抽屉里）也会自动预热新模型。
 
 **文本原型缓存的指纹只由「类别表 + 模板」决定**：
 
 | 你改了什么 | 重建原型？ |
 |---|---|
-| 分类名 / 英文描述 | ✅ 重建（应谈） |
+| 分类名 / 中文描述 | ✅ 重建（应然） |
 | **阈值** | ❌ **不重建**（实测 13.3s → 0.08s） |
 | **margin** | ❌ **不重建** |
 | 什么都没改，重复保存 | ❌ **不重建** |
 
 启动时自动清理孤儿缓存（保留当前配置的 + 最近 8 个）。
 
-> 迁移到内网时**建议把 `src/.feat_cache/` 一起拷走** —— 能省掉首次的 42 秒建原形。
+> 迁移到内网时**建议把 `src/.feat_cache/` 一起拷走** —— 能省掉首次几秒的建原型。
 > 拷不拷都能跑，拷了首次启动就快。
 
 ### 设计说明
@@ -220,7 +226,7 @@ n01_tray.png → 真值 = 非物品（期望被拒识）
 set HF_HUB_OFFLINE=1
 ```
 
-配合项目内 `.hf\hub` 即可**完全离线**运行（已实测验证）。
+配合项目内 `.hf\chinese-clip-vit-base-patch16\` 即可**完全离线**运行（已实测验证）。
 
 ---
 
@@ -233,10 +239,10 @@ set HF_HUB_OFFLINE=1
 ### src/01_clip_zeroshot.py —— 单张 / 批量分类
 
 ```bash
-python src/01_clip_zeroshot.py <图片或文件夹>                 # 默认 clip
-python src/01_clip_zeroshot.py <图片或文件夹> --model siglip   # 切 SigLIP2
-python src/01_clip_zeroshot.py <图片或文件夹> --compare        # 并排对比
-python src/01_clip_zeroshot.py --cats                        # 只看当前分类表
+python src/01_clip_zeroshot.py <图片或文件夹>            # 分类
+python src/01_clip_zeroshot.py --cats                   # 只看当前分类表
+python src/01_clip_zeroshot.py <路径> --no-config        # 用内置默认值
+python src/01_clip_zeroshot.py <路径> --margin 0.25      # 临时改相对间隔
 ```
 
 输出：判定类别、置信度、负类得分、相对间隔、Top-3、耗时、拒识原因。
@@ -258,7 +264,13 @@ python src/02_eval_tray.py 物品图片              # 或指定目录
 | `银行卡1.jpg` … | 真值 = 银行卡 |
 | `n01_tray.png`、`n02_bg.png` | 真值 = **负类**（期望被拒识） |
 
+> ★ 样本量 < 20 张的类别会触发**警告**并打印 95% 置信区间 —— 4 张图的
+> 「50% 正确率」真实值可能在 15%~85% 之间，不可当作结论。
+
 自动产出：每类正确率、物品正确率、**非物品正确拒识率**、错分率、**误接受率**、平均耗时。
+
+> 与 Web Demo、`01_clip_zeroshot.py` 共用 `src/cnclip_model.py` 的模型封装。
+> `web_demo.py` 为保持单文件可直接拷走，内置了一份等价实现。
 
 ### src/cfg_source.py —— 单一数据源
 
@@ -289,21 +301,29 @@ python src/cfg_source.py --init     # 用默认值生成 web_demo_categories.jso
 
 ## 6. ⚠️ 已知问题与修复
 
-### 6.1 SigLIP2 离线加载失败
+### 6.1 transformers 5.x 的 `get_*_features` 有两个坑
 
-| 项 | 内容 |
+**本项目实际踩过，务必注意：**
+
+| 现象 | 说明 |
 |---|---|
-| **现象** | `HF_HUB_OFFLINE=1` 时 SigLIP2 tokenizer 报 `OSError: couldn't connect ... couldn't find them in the cached files` |
-| **原因** | `timm/ViT-B-32-SigLIP2-256` 仓库**本身没有 `config.json`**。在线时 transformers 收到 404 会优雅降级；离线时 `huggingface_hub` 返回 `.no_exist` 标记，transformers 却直接抛异常 |
-| **修复** | 在快照目录补一个最小 `config.json`，并删除过期的 `.no_exist` 标记 |
+| `get_text_features()` 返回的不是张量 | 它返回 `BaseModelOutputWithPooling`，真正的嵌入在 **`.pooler_output`** |
+| 拿到的嵌入**没归一化** | 模长约 **36**（不是 1）。必须自己 `f / f.norm(dim=-1, keepdim=True)` |
 
-```bash
-python src/fix_hf_cache.py
+**不修会怎样**：相似度大两个数量级 → `logit_scale × sim` 全部溢出 → **所有图都判错**，
+而且不报任何异常（只是结果全错）。
+
+正确写法（见 `src/cnclip_model.py`）：
+
+```python
+f = model.get_text_features(**tk).pooler_output     # ← 不是返回值本身
+f = f / f.norm(dim=-1, keepdim=True)                # ← 必须自己归一化
 ```
 
-> 该脚本**幂等**，可重复运行。
-> **注意**：如果删除了 `.hf\hub` 重新下载缓存，需**再次运行**本脚本。
-> CLIP 不受此问题影响（用的是内置 tokenizer，不依赖 transformers）。
+### 6.1.1 不要把 .bat 之外的文本模板写成英文
+
+Chinese-CLIP 的文本塔是**中文 BERT（RoBERTa-wwm）**，只认中文。
+用英文模板 `"a photo of {}"` 会得到一只乱码 token 序列，准确率崩掉。
 
 ### 6.2 中文路径
 
@@ -312,8 +332,14 @@ python src/fix_hf_cache.py
 
 ### 6.3 不要自己写预处理
 
-必须使用 `open_clip` 提供的 `preprocess`，**不要手写 Resize / CenterCrop / Normalize**。
+必须使用模型自带的 `processor`（ChineseCLIPProcessor）做预处理，
+**不要手写 Resize / CenterCrop / Normalize**。
 不一致不会报错，只会让准确率静默下降。
+
+```python
+ii = processor(images=pil_img, return_tensors="pt")
+f  = model.get_image_features(**ii)      # processor 已处理好 224×224 与归一化
+```
 
 ### 6.4 `.bat` 必须纯 ASCII + CRLF
 
@@ -346,14 +372,15 @@ python src/fix_hf_cache.py
 |---|---|---|
 | `torch` | 2.14.0+cpu | 纯 CPU 即可，无需 GPU |
 | `torchvision` | 0.29.0+cpu | |
-| `open_clip_torch` | 3.3.0 | CLIP / SigLIP2 |
-| `transformers` | 5.17.0 | **仅 SigLIP2 需要**（HF tokenizer） |
-| `opencv-python` | 5.0.0.93 | L0 差分 / 连通域 |
-| `pillow` | 12.3.0 | |
-| `rapidocr-onnxruntime` | 1.2.3 | L0 证件 OCR |
-| `onnxruntime` | 1.30.0 | 部署推理 |
+| **`transformers`** | 5.17.0 | **★ Chinese-CLIP 靠它加载**（含中文 BERT 文本塔） |
+| `pillow` | 12.3.0 | 图像读取与缩放 |
+| `opencv-python` | 5.0.0.93 | 预留：L0 差分 / 连通域 |
+| `rapidocr-onnxruntime` | 1.2.3 | 预留：L0 证件 OCR |
+| `onnxruntime` | 1.30.0 | 预留：部署推理 |
 
-**为什么用独立的 venv**：`transformers` + `open_clip_torch` 依赖较重，且
+> 本分支**不再需要** `open_clip_torch` / `timm`（那是英文 CLIP 与 SigLIP2 的依赖）。
+
+**为什么用独立的 venv**：`torch` + `transformers` 依赖较重，且
 `transformers` 版本迭代快、易与其他项目冲突，隔离后互不影响。
 
 ### 全局环境现状
@@ -362,10 +389,10 @@ python src/fix_hf_cache.py
 
 | 包 | 说明 |
 |---|---|
-| `open_clip_torch` | CLIP / SigLIP2 实现 |
-| `transformers` | SigLIP2 tokenizer |
+| `open_clip_torch` | 英文 CLIP / SigLIP2 实现（本分支不需要） |
+| `transformers` | **Chinese-CLIP 依赖它** |
 | `clip` | OpenAI 原版 CLIP（与 open_clip_torch 是两个不同的包） |
-| `timm` | open_clip 的依赖（venv 中为 1.0.30，`Required-by: open_clip_torch`） |
+| `timm` | open_clip 的依赖 |
 
 全局**保留**（其他工具可能仍在用）：`torch` `torchvision` `opencv-python` `onnxruntime` `rapidocr-onnxruntime`。
 
@@ -376,11 +403,10 @@ python src/fix_hf_cache.py
 整个项目目录（含 `.venv` 与 `.hf`）可**整体拷贝**，但更推荐在新机器上重建环境：
 
 ```bat
-:: 1. 拷贝项目（可跳过 .venv 与 .hf 以减小体积）
-:: 2. 拷贝 .hf 目录（3.5GB）—— 有它才能离线
+:: 1. 拷贝项目（可跳过 .venv 以减小体积）
+:: 2. 拷贝 .hf 目录（719MB）—— 有它才能离线
 :: 3. 新机器上执行
 setup_env.bat
-python src/fix_hf_cache.py
 env.bat
 python src/02_eval_tray.py .
 ```
@@ -397,11 +423,13 @@ pip download -r requirements.txt -d wheels/
 
 | 项 | 状态 |
 |---|---|
-| venv 隔离 | ✅ 独立环境；全局已卸载 `open_clip_torch` `transformers` `clip` `timm` |
-| 模型缓存 | ✅ 已迁至项目内 `.hf/hub`（3.5GB），C 盘源缓存已删 |
-| 离线运行 | ✅ 实测通过（`HF_HUB_OFFLINE=1`） |
-| 评测结果 | ✅ 28 张 / 8 类：误接受 0、CLIP 错分 0（详见 `docs/实验记录.md`） |
+| 识别后端 | ✅ **Chinese-CLIP ViT-B/16**（单一后端，中文描述） |
+| 模型缓存 | ✅ 项目内 `.hf/chinese-clip-vit-base-patch16/`（719MB） |
+| 离线运行 | ✅ 实测通过（`HF_HUB_OFFLINE=1`，模型从本地目录加载） |
+| 评测结果 | ✅ 28 张 / 8 类：**物品 21/28 · 误拒 7 · 错分 0 · 拒识 7/7 · 误接受 0** |
+| 中英对照 | ✅ 与 `dev-english`（英文 CLIP）**五项指标完全相同** |
 | Web Demo | ✅ 浅色/深色双主题 · 配置抽屉 · 自动预热 · 完整准确率面板 |
 | 配置来源 | ✅ 统一为 `web_demo_categories.json`（Web + 两个命令行脚本共用） |
 | 实验记录 | ✅ `docs/实验记录.md`（六组实测：类别表容量与成本） |
+| 样本量 | ⚠️ 8 个类别有数据，**其余 34 类零样本**；每类仅 1~8 张，置信区间很宽 |
 | 泛化验证 | ⏳ 待扩展至每类 ≥20 张不同实物 + ≥30 张非物品图 |

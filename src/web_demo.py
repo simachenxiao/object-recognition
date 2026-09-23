@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 """
-零样本物品识别 —— Demo Web 应用
+随身物品识别 —— Demo Web 应用（Chinese-CLIP 版）
 
 特点:
-    · 纯 Python 标准库实现（http.server），零额外依赖
+    · 后端只用一个模型：Chinese-CLIP ViT-B/16（OFA-Sys）
+    · 类别描述用【中文】—— 民警可直接阅读和修改
+    · 纯 Python 标准库实现（http.server），零额外 Web 依赖
     · 完全离线可用，适合内网
-    · 支持 CLIP / SigLIP2 / 双后端对比
-    · 可视化编辑分类（增删改类别与英文描述）
+    · 可视化编辑分类（增删改类别与中文描述）
     · 上传文件夹或单张图片，逐个输出分类结果
     · 按文件名自动比对真值，计算出准确率
 
@@ -15,14 +16,20 @@
     python web_demo.py --port 8080
     python web_demo.py --no-browser   # 不自动打开浏览器
 
+模型来源（按优先级）:
+    1. 项目内 .hf/chinese-clip-vit-base-patch16/   ← 离线部署用这个
+    2. HF 仓库 OFA-Sys/chinese-clip-vit-base-patch16
+       （需联网，走 HF_ENDPOINT 镜像）
+
 依赖（已在 .venv 中）:
-    torch, open_clip_torch, transformers, pillow
+    torch, torchvision, transformers, pillow
 """
 import os
 
 # ── 环境变量必须在 import 前设置 ─────────────────────────────
 os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
 
 import sys
@@ -43,71 +50,119 @@ try:
 except Exception:
     pass
 
+# ★ 两个目录要分清：
+#   APP_DIR  = 本文件所在目录（src/）—— 配置、特征缓存放这里
+#   ROOT_DIR = 项目根目录            —— .hf 模型缓存在这里
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(APP_DIR)
+PROJECT_DIR = APP_DIR          # 旧名，保持兼容
+
 # ── 重型依赖惰性加载 ────────────────────────────────────────
-# torch + open_clip 导入需 7~8 秒。若在模块级别导入，HTTP 服务要等这么久才监听；
+# torch + transformers 导入需数秒。若在模块级别导入，HTTP 服务要等这么久才监听；
 # 改成首次用到时才导入，页面可以秒开。
 _LIB = {}
 
 
 def libs():
     if not _LIB:
-        print("[初始化] 加载 torch / open_clip ...", flush=True)
+        print("[初始化] 加载 torch / transformers ...", flush=True)
         t = time.time()
         import torch
-        import open_clip
         from PIL import Image
+        from transformers import ChineseCLIPModel, ChineseCLIPProcessor
+        try:                       # 静音 "Loading weights: 100%|..." 进度条
+            from transformers.utils import logging as hf_logging
+            hf_logging.disable_progress_bar()
+            hf_logging.set_verbosity_error()
+        except Exception:
+            pass
         _LIB["torch"] = torch
-        _LIB["open_clip"] = open_clip
         _LIB["Image"] = Image
+        _LIB["ChineseCLIPModel"] = ChineseCLIPModel
+        _LIB["ChineseCLIPProcessor"] = ChineseCLIPProcessor
         print(f"[初始化] 就绪 ({time.time()-t:.1f}s)", flush=True)
     return _LIB
 
+
 # ══════════════════════════════════════════════════════════════
-# 后端配置
+# 后端配置 —— 只有 Chinese-CLIP
 # ══════════════════════════════════════════════════════════════
+CNCLIP_LOCAL_DIR = os.path.join(ROOT_DIR, ".hf", "chinese-clip-vit-base-patch16")
+CNCLIP_REPO = "OFA-Sys/chinese-clip-vit-base-patch16"
+
 BACKENDS = {
-    "clip": {
-        "label": "CLIP ViT-B-32",
-        "model": "ViT-B-32",
-        "pretrained": "laion2b_s34b_b79k",
+    "cnclip": {
+        "label": "Chinese-CLIP ViT-B/16",
+        "repo": CNCLIP_REPO,
         "mode": "softmax",
         "th": 0.70,
-        "note": "得分稳定、阈值窗口宽（0.35~0.95），推荐默认",
-    },
-    "siglip": {
-        "label": "SigLIP2 ViT-B-32-256",
-        "model": "ViT-B-32-SigLIP2-256",
-        "pretrained": "webli",
-        "mode": "sigmoid",
-        "th": 0.0005,
-        "note": "拒识分离度好，但得分波动大、阈值窗口窄",
+        "note": "中文描述 · 民警可直接改；建原型快，单张比英文 CLIP 慢约 2 倍",
     },
 }
 
-TEMPLATES = ["a photo of {}", "a close-up photo of {}", "{}"]
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "web_demo_categories.json")
+# 中文提示模板。
+# ★ 实测（35 张图）：这套模板 + 中文描述，准确率与英文 CLIP + 英文描述完全相同
+#   （物品 21/28 · 误拒 7 · 错分 0 · 拒识 7/7 · 误接受 0）
+TEMPLATES = ["一张{}的照片", "{}", "一个{}"]
+
+# 中文 BERT 文本塔的上下文长度
+MAX_TEXT_LEN = 52
+
+CONFIG_FILE = os.path.join(APP_DIR, "web_demo_categories.json")
 # ★ 文本原型磁盘缓存目录：类别表不变时直接读文件，不用重新编码
-#   （42 类 × 双后端现建需 44s，读缓存 <0.1s）
-FEAT_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              ".feat_cache")
+FEAT_CACHE_DIR = os.path.join(APP_DIR, ".feat_cache")
 
 DEFAULT_CONFIG = {
-    "thresholds": {"clip": 0.70, "siglip": 0.0005},
+    "thresholds": {"cnclip": 0.70},
     # ★ 相对间隔：(top1 - top2) / top1。低于此值 → 判为「两类别接近，待人工确认」
-    #   用相对值才能同时适配 CLIP（0.99 量级）与 SigLIP2（0.001 量级）
     "margin": 0.30,
     "categories": [
-        {"name": "手机", "descs": ["a mobile phone", "a smartphone", "a cell phone"]},
-        {"name": "现金", "descs": ["paper money", "banknotes", "a stack of cash"]},
-        {"name": "手表", "descs": ["a wristwatch", "a watch"]},
-        {"name": "钥匙", "descs": ["a key", "a bunch of keys", "a keychain"]},
-        {"name": "银行卡", "descs": ["a credit card", "a bank card", "a plastic card"]},
+        {"name": "身份证", "descs": ["身份证", "一张身份证", "居民身份证"]},
+        {"name": "驾驶证", "descs": ["驾驶证", "驾照", "机动车驾驶证"]},
+        {"name": "行驶证", "descs": ["行驶证", "车辆行驶证", "机动车行驶证"]},
+        {"name": "银行卡", "descs": ["银行卡", "一张银行卡", "信用卡"]},
+        {"name": "公交卡", "descs": ["公交卡", "交通卡", "公交IC卡"]},
+        {"name": "票据", "descs": ["票据", "收据", "发票", "纸质票据"]},
+        {"name": "现金", "descs": ["现金", "纸币", "一叠钞票", "人民币"]},
+        {"name": "手机", "descs": ["手机", "智能手机", "一部手机"]},
+        {"name": "手机充电器", "descs": ["手机充电器", "充电头", "电源适配器"]},
+        {"name": "充电宝", "descs": ["充电宝", "移动电源"]},
+        {"name": "耳机", "descs": ["耳机", "有线耳机", "蓝牙耳机"]},
+        {"name": "手表", "descs": ["手表", "腕表", "机械表"]},
+        {"name": "平板电脑", "descs": ["平板电脑", "平板", "iPad"]},
+        {"name": "笔记本电脑", "descs": ["笔记本电脑", "笔记本", "一台笔记本电脑"]},
+        {"name": "U盘", "descs": ["U盘", "闪存盘", "USB存储设备"]},
+        {"name": "电子烟", "descs": ["电子烟", "电子烟杆"]},
+        {"name": "香烟", "descs": ["香烟", "一包香烟", "烟盒"]},
+        {"name": "打火机", "descs": ["打火机", "一次性打火机"]},
+        {"name": "钱包", "descs": ["钱包", "皮钱包", "钱夹"]},
+        {"name": "手提包", "descs": ["手提包", "女式手提包", "单肩包"]},
+        {"name": "背包", "descs": ["背包", "双肩包", "书包"]},
+        {"name": "戒指", "descs": ["戒指", "金戒指", "一枚戒指"]},
+        {"name": "项链", "descs": ["项链", "金项链", "带吊坠的项链"]},
+        {"name": "手链手镯", "descs": ["手链", "手镯", "一串手链"]},
+        {"name": "耳环", "descs": ["耳环", "一对耳环", "耳钉"]},
+        {"name": "眼镜", "descs": ["眼镜", "一副眼镜", "近视眼镜"]},
+        {"name": "帽子", "descs": ["帽子", "鸭舌帽", "一顶帽子"]},
+        {"name": "围巾", "descs": ["围巾", "戴在脖子上的围巾", "毛线围巾"]},
+        {"name": "皮带", "descs": ["皮带", "腰带", "一条皮带"]},
+        {"name": "口罩", "descs": ["口罩", "一次性口罩", "戴在脸上的口罩"]},
+        {"name": "钥匙", "descs": ["钥匙", "一串钥匙", "一把钥匙"]},
+        {"name": "笔", "descs": ["笔", "圆珠笔", "一支笔"]},
+        {"name": "本子", "descs": ["本子", "笔记本", "一本记事本"]},
+        {"name": "纸巾", "descs": ["纸巾", "一包纸巾", "抽纸"]},
+        {"name": "水杯", "descs": ["水杯", "保温杯", "杯子"]},
+        {"name": "雨伞", "descs": ["雨伞", "折叠伞", "一把伞"]},
+        {"name": "梳子", "descs": ["梳子", "一把梳子"]},
+        {"name": "镜子", "descs": ["镜子", "小镜子", "手持镜子"]},
+        {"name": "指甲刀", "descs": ["指甲刀", "指甲剪"]},
+        {"name": "药品", "descs": ["药品", "药盒", "一板药片", "药瓶"]},
+        {"name": "护肤化妆", "descs": ["护肤品", "化妆品", "护手霜", "一支口红"]},
+        {"name": "零食", "descs": ["零食", "一袋零食", "薯片", "糖果"]},
         {"name": "非物品", "negative": True, "descs": [
-            "a photo of a table", "a photo of a room", "an empty tray",
-            "a photo of a white board", "a screenshot", "a document",
-            "a text page", "a form", "a photo of a person", "a face",
-            "hands", "a fruit", "a vegetable",
+            "桌子", "空托盘", "白板", "屏幕截图", "一份文件",
+            "一页文字", "表格", "人脸", "一双手", "水果", "蔬菜",
+            "灰色布料", "一面墙", "空白背景", "一张素描画",
         ]},
     ],
 }
@@ -118,7 +173,6 @@ DEFAULT_CONFIG = {
 # ══════════════════════════════════════════════════════════════
 _cfg_lock = threading.Lock()
 _config = None
-_cat_version = 0          # 类别表版本号，用于失效特征缓存
 
 
 def load_config():
@@ -132,6 +186,12 @@ def load_config():
             _config.setdefault("thresholds", {})
             for k, v in BACKENDS.items():
                 _config["thresholds"].setdefault(k, v["th"])
+            # 兼容：万一配置里只有旧后端名的阈值，迁移到 cnclip
+            if "cnclip" not in _config["thresholds"]:
+                for old in ("clip", "siglip"):
+                    if old in _config["thresholds"]:
+                        _config["thresholds"]["cnclip"] = _config["thresholds"][old]
+                        break
             return _config
         except Exception as e:
             print(f"[WARN] 读取配置失败，用默认值: {e}")
@@ -141,10 +201,9 @@ def load_config():
 
 
 def save_config(cfg):
-    global _config, _cat_version
+    global _config
     with _cfg_lock:
         _config = cfg
-        _cat_version += 1
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
 
@@ -153,7 +212,7 @@ def save_config(cfg):
 # 模型管理
 # ══════════════════════════════════════════════════════════════
 _model_lock = threading.Lock()
-_MODELS = {}      # key -> (model, preprocess, tokenizer, cfg)
+_MODELS = {}      # key -> (model, processor, cfg)
 _FEATS = {}       # (key, 指纹) -> (text_feat, names, is_neg)
 # ★ 每个后端一把锁：避免「预热还没跑完，用户就点了识别」时
 #   两个线程同时编码同一份原型（白白多花几十秒）
@@ -169,20 +228,49 @@ def _feat_lock_for(key):
 
 
 def get_model(key):
+    """加载 Chinese-CLIP（优先本地目录，离线可用）"""
     with _model_lock:
         if key in _MODELS:
             return _MODELS[key]
         L = libs()
         cfg = BACKENDS[key]
-        print(f"[模型] 加载 {cfg['label']} ...", flush=True)
+        src = CNCLIP_LOCAL_DIR if os.path.isdir(CNCLIP_LOCAL_DIR) else cfg["repo"]
+        where = "本地目录" if os.path.isdir(CNCLIP_LOCAL_DIR) else "HF 仓库（需联网）"
+        print(f"[模型] 加载 {cfg['label']} ← {where} ...", flush=True)
         t = time.time()
-        model, _, preprocess = L["open_clip"].create_model_and_transforms(
-            cfg["model"], pretrained=cfg["pretrained"])
+        model = L["ChineseCLIPModel"].from_pretrained(src)
         model.eval()
-        tokenizer = L["open_clip"].get_tokenizer(cfg["model"])
+        processor = L["ChineseCLIPProcessor"].from_pretrained(src)
         print(f"[模型] {cfg['label']} 就绪 ({time.time()-t:.1f}s)", flush=True)
-        _MODELS[key] = (model, preprocess, tokenizer, cfg)
+        _MODELS[key] = (model, processor, cfg)
         return _MODELS[key]
+
+
+# ── 特征编码（Chinese-CLIP 的 API 与英文 CLIP 不同，见下注释）──
+def encode_text(model, processor, prompts):
+    """文本编码 → 已归一化嵌入 (N, 512)
+
+    ★ transformers 5.x 的坑：
+      1. get_text_features() 返回的是【输出对象】，不是张量，
+         真正的嵌入在 .pooler_output
+      2. 它【不自动归一化】（模长约 36），必须自己除模长
+         否则相似度会大两个数量级，全判错
+    """
+    torch = libs()["torch"]
+    with torch.no_grad():
+        tk = processor(text=prompts, return_tensors="pt", padding=True,
+                       truncation=True, max_length=MAX_TEXT_LEN)
+        f = model.get_text_features(**tk).pooler_output
+        return f / f.norm(dim=-1, keepdim=True)
+
+
+def encode_image(model, processor, pil_img):
+    """图像编码 → 已归一化嵌入 (1, 512)"""
+    torch = libs()["torch"]
+    with torch.no_grad():
+        ii = processor(images=pil_img, return_tensors="pt")
+        f = model.get_image_features(**ii).pooler_output
+        return f / f.norm(dim=-1, keepdim=True)
 
 
 def feat_signature(key):
@@ -194,9 +282,9 @@ def feat_signature(key):
     """
     payload = {
         "backend": key,
-        "model": BACKENDS[key]["model"],
-        "pretrained": BACKENDS[key]["pretrained"],
+        "repo": BACKENDS[key]["repo"],
         "templates": TEMPLATES,
+        "max_text_len": MAX_TEXT_LEN,
         "categories": [[c.get("name"), list(c.get("descs", [])),
                         bool(c.get("negative"))]
                        for c in _config["categories"]],
@@ -211,7 +299,6 @@ def clean_feat_cache(max_keep=8, verbose=True):
     规则：
         · 当前配置用到的指纹 → 必留
         · 其余按修改时间由新到旧，最多再留 max_keep 个
-          （留几个历史，方便在两个配置之间来回切换）
         · 再剩下的当孤儿删掉
 
     只处理【自己命名的 .pt】文件，不动目录里的其他东西。
@@ -221,15 +308,13 @@ def clean_feat_cache(max_keep=8, verbose=True):
     try:
         keep_now = {f"{k}_{feat_signature(k)}.pt" for k in BACKENDS}
     except Exception:
-        return 0                       # 配置异常就不清了
-
+        return 0
     files = []
     for f in os.listdir(FEAT_CACHE_DIR):
         p = os.path.join(FEAT_CACHE_DIR, f)
         if os.path.isfile(p) and f.endswith(".pt"):
             files.append((os.path.getmtime(p), f, p))
-    files.sort(reverse=True)           # 新的在前
-
+    files.sort(reverse=True)
     kept, removed = [], []
     for mt, f, p in files:
         if f in keep_now or len(kept) < max_keep:
@@ -240,7 +325,6 @@ def clean_feat_cache(max_keep=8, verbose=True):
                 removed.append(f)
             except OSError:
                 pass
-
     if verbose and removed:
         print(f"[缓存] 特征原型保留 {len(kept)} 个，清理孤儿 {len(removed)} 个",
               flush=True)
@@ -252,18 +336,13 @@ def clean_feat_cache(max_keep=8, verbose=True):
 def get_features(key):
     """构建 / 复用类别原型向量
 
-    三级缓存：
-        内存 _FEATS  →  磁盘 .feat_cache/*.pt  →  现编码
-    缓存键 = (后端, 文本特征指纹)。指纹只由类别表 + 模板决定，
-    所以改阈值不会触发重建。
+    三级缓存：内存 _FEATS → 磁盘 .feat_cache/*.pt → 现编码
     """
     sig = feat_signature(key)
     cache_key = (key, sig)
     if cache_key in _FEATS:
         return _FEATS[cache_key]
 
-    # ★ 同一后端只允许一个线程在编码。等锁的线程拿到锁后会再查一次缓存，
-    #   直接复用别人刚建好的结果（双重检查）。
     with _feat_lock_for(key):
         if cache_key in _FEATS:
             print(f"[特征] {key} 复用另一线程刚建好的原型", flush=True)
@@ -289,26 +368,23 @@ def _build_features(key, sig, cache_key):
             print(f"[特征] 磁盘缓存不可用（{type(e).__name__}），改为重建", flush=True)
 
     # ── ② 现编码 ──────────────────────────────────────────
-    model, _, tokenizer, _ = get_model(key)
+    model, processor, _ = get_model(key)
     cats = _config["categories"]
     print(f"[特征] {key} 正在编码 {len(cats)} 类 ...", flush=True)
     t0 = time.time()
     feats, names, is_neg = [], [], []
-    with torch.no_grad():
-        for c in cats:
-            descs = [d.strip() for d in c.get("descs", []) if d.strip()]
-            if not descs:
-                descs = [c["name"]]
-            prompts = [t.format(d) for d in descs for t in TEMPLATES]
-            f = model.encode_text(tokenizer(prompts))
-            f = f / f.norm(dim=-1, keepdim=True)
-            f = f.mean(dim=0)
-            f = f / f.norm(dim=-1, keepdim=True)
-            feats.append(f)
-            names.append(c["name"])
-            is_neg.append(bool(c.get("negative")))
+    for c in cats:
+        descs = [d.strip() for d in c.get("descs", []) if d.strip()]
+        if not descs:
+            descs = [c["name"]]
+        prompts = [t.format(d) for d in descs for t in TEMPLATES]
+        f = encode_text(model, processor, prompts).mean(dim=0)
+        feats.append(f / f.norm(dim=-1, keepdim=True))
+        names.append(c["name"])
+        is_neg.append(bool(c.get("negative")))
     TF = torch.stack(feats)
-    print(f"[特征] {key} 编码完成 {len(names)} 类（{time.time() - t0:.1f}s）", flush=True)
+    print(f"[特征] {key} 编码完成 {len(names)} 类（{time.time() - t0:.1f}s）",
+          flush=True)
 
     # ── ③ 写盘 ────────────────────────────────────────────
     try:
@@ -320,7 +396,6 @@ def _build_features(key, sig, cache_key):
     except Exception as e:
         print(f"[特征] 写缓存失败（不影响识别）：{e}", flush=True)
 
-    # 淘汰同一后端的旧指纹条目
     for k in [k for k in _FEATS if k[0] == key and k[1] != sig]:
         _FEATS.pop(k, None)
     _FEATS[cache_key] = (TF, names, is_neg)
@@ -328,15 +403,9 @@ def _build_features(key, sig, cache_key):
 
 
 def scores(sim, model, cfg):
-    torch = libs()["torch"]
+    """Chinese-CLIP 用标准 softmax（logit_scale=100，无 logit_bias）"""
     scale = model.logit_scale.exp()
-    if cfg["mode"] == "softmax":
-        return (scale * sim).softmax(dim=-1)
-    logits = scale * sim
-    bias = getattr(model, "logit_bias", None)
-    if bias is not None:
-        logits = logits + bias
-    return torch.sigmoid(logits)
+    return (scale * sim).softmax(dim=-1)
 
 
 _infer_lock = threading.Lock()
@@ -344,18 +413,15 @@ _infer_lock = threading.Lock()
 
 def infer_one(pil_img, key):
     """对单张图做推理，返回结构化结果"""
-    model, preprocess, _, cfg = get_model(key)
-    torch = libs()["torch"]
+    model, processor, cfg = get_model(key)
     TF, names, is_neg = get_features(key)
     th = float(_config["thresholds"].get(key, cfg["th"]))
-    margin_th = float(_config.get("margin", 0.10))
+    margin_th = float(_config.get("margin", 0.30))
 
     with _infer_lock:
         t = time.time()
-        with torch.no_grad():
-            x = preprocess(pil_img).unsqueeze(0)
-            f = model.encode_image(x)
-            f = f / f.norm(dim=-1, keepdim=True)
+        f = encode_image(model, processor, pil_img)
+        with libs()["torch"].no_grad():
             pr = scores(f @ TF.T, model, cfg)[0]
         ms = (time.time() - t) * 1000
 
@@ -372,8 +438,7 @@ def infer_one(pil_img, key):
     best_p = ip[best_local].item()
     best_name = names[item_idx[best_local]]
     second_p = ip[order[1]].item() if len(order) > 1 else 0.0
-    # ★ margin 必须用【相对】差值：CLIP 得分在 0.99 量级，SigLIP2 在 0.001 量级，
-    #   绝对差值对不同后端完全不可比。相对差值 = (top1-top2)/top1，两者通用。
+    # ★ margin 用【相对】差值：(top1-top2)/top1
     margin_rel = (best_p - second_p) / best_p if best_p > 1e-12 else 0.0
     neg_p = max([pr[i].item() for i in neg_idx], default=0.0)
 
@@ -403,7 +468,7 @@ def infer_one(pil_img, key):
 # HTTP 服务
 # ══════════════════════════════════════════════════════════════
 class Server(ThreadingHTTPServer):
-    """覆写 handle_error：客户端断连是常态，不要打大圠 traceback"""
+    """覆写 handle_error：客户端断连是常态，不要打大坨 traceback"""
     daemon_threads = True
     allow_reuse_address = True
 
@@ -419,7 +484,7 @@ class Server(ThreadingHTTPServer):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ItemDemo/1.0"
+    server_version = "ItemDemo/2.0-cn"
 
     def log_message(self, fmt, *args):
         if "/api/" in self.path and self.command == "POST":
@@ -440,8 +505,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
         except (ConnectionAbortedError, ConnectionResetError,
                 BrokenPipeError, OSError) as e:
-            # ★ 浏览器提前断开（首次请求耗时长时超时/刷新/关标签页）是常态，
-            #   不能让它把服务端异常处理也弄挂。旧代码就是死在这里。
+            # ★ 浏览器提前断开是常态，不能让它把异常处理也弄挂
             print(f"[HTTP] 客户端已断开（{type(e).__name__}）—— 响应丢弃，服务继续",
                   flush=True)
             self.close_connection = True
@@ -464,6 +528,8 @@ class Handler(BaseHTTPRequestHandler):
                                  "th": float(_config["thresholds"].get(k, v["th"])),
                                  "note": v["note"]} for k, v in BACKENDS.items()},
                 "loaded": sorted(_MODELS.keys()),
+                "model_dir": CNCLIP_LOCAL_DIR if os.path.isdir(CNCLIP_LOCAL_DIR)
+                             else CNCLIP_REPO,
             })
         else:
             self._send(404, {"error": "not found"})
@@ -486,7 +552,7 @@ class Handler(BaseHTTPRequestHandler):
 
             if p == "/api/preload":
                 body = self._read_json()
-                for k in body.get("backends", []):
+                for k in body.get("backends", []) or list(BACKENDS):
                     if k in BACKENDS:
                         get_model(k)
                         get_features(k)
@@ -498,7 +564,6 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not found"})
         except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError,
                 OSError) as e:
-            # 客户端已走，不必（也无法）回应
             print(f"[HTTP] 处理中客户端断开（{type(e).__name__}）—— 已忽略", flush=True)
             self.close_connection = True
         except Exception as e:
@@ -511,10 +576,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def _predict(self):
         body = self._read_json()
-        backend_req = body.get("backend", "clip")     # clip | siglip | both
+        # 只有一个后端了；兼容旧前端传来的 backend 参数但忽略之
+        keys = list(BACKENDS)
         images = body.get("images", [])
-        keys = ["clip", "siglip"] if backend_req == "both" else [backend_req]
-        keys = [k for k in keys if k in BACKENDS]
 
         out = []
         for item in images:
@@ -532,7 +596,6 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     rec["results"][k] = infer_one(img, k)
                 except Exception as e:
-                    # 错误分支也必须返回完整字段，否则前端会崩
                     rec["results"][k] = {
                         "verdict": "★错误", "category": None, "confidence": 0.0,
                         "margin": 0.0, "neg_score": 0.0, "threshold": 0.0,
@@ -546,7 +609,6 @@ class Handler(BaseHTTPRequestHandler):
 # ══════════════════════════════════════════════════════════════
 # 前端页面
 # ══════════════════════════════════════════════════════════════
-
 HTML_PAGE = r"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -887,7 +949,7 @@ tbody tr:last-child td{border-bottom:0}
     <div class="brand-logo" data-i="scan"></div>
     <div>
       <div class="brand-title">随身物品识别台</div>
-      <div class="brand-sub">零样本分类 · CLIP / SigLIP2</div>
+      <div class="brand-sub">零样本分类 · Chinese-CLIP</div>
     </div>
   </div>
   <div class="spacer"></div>
@@ -1004,23 +1066,19 @@ tbody tr:last-child td{border-bottom:0}
 
       <div>
         <div class="cat-lbl" style="margin-bottom:6px">识别后端</div>
-        <div class="seg" id="backendSeg" style="width:100%">
-          <button data-b="clip"   style="flex:1">CLIP</button>
-          <button data-b="siglip" style="flex:1">SigLIP2</button>
-          <button data-b="both"   style="flex:1">双后端对比</button>
+        <div class="seg" id="backendSeg" style="width:100%;display:none">
+          <button data-b="cnclip" style="flex:1">Chinese-CLIP</button>
         </div>
         <div class="dsec-note" id="backendNote" style="margin-top:7px"></div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div>
-          <div class="cat-lbl" style="margin-bottom:6px">CLIP 阈值</div>
-          <input type="number" id="thClip" step="0.01" min="0" max="1" style="width:100%">
-        </div>
-        <div>
-          <div class="cat-lbl" style="margin-bottom:6px">SigLIP2 阈值</div>
-          <input type="number" id="thSiglip" step="0.00001" min="0" max="1" style="width:100%">
-        </div>
+      <div>
+        <div class="cat-lbl" style="margin-bottom:6px">识判阈值</div>
+        <input type="number" id="thClip" step="0.01" min="0" max="1" style="width:100%">
+      </div>
+
+      <div style="display:none">
+        <input type="number" id="thSiglip" step="0.00001">
       </div>
 
       <div>
@@ -1028,7 +1086,7 @@ tbody tr:last-child td{border-bottom:0}
         <input type="number" id="margin" step="0.05" min="0" max="1" style="width:100%">
         <div class="dsec-note" style="margin-top:6px">
           判定为「未知」的三个条件：得分低于阈值 / 负类得分更高 /（top1−top2）÷top1 小于本值。
-          用<b>相对值</b>才能同时适配 CLIP（0.99 量级）与 SigLIP2（0.001 量级）。
+          用<b>相对值</b>而不是绝对差值：不同模型的分数量级差异很大。
         </div>
       </div>
 
@@ -1127,8 +1185,8 @@ function initTheme(){
 /* ══════════════════════════════════════════════════════════════
    状态
    ══════════════════════════════════════════════════════════════ */
-let CFG=null, BACKENDS={}, LOADED=[], BACKEND='clip';
-let PRELOADING=null;   // null=未在预热 / 'clip,siglip'=正在预热的后端
+let CFG=null, BACKENDS={}, LOADED=[], BACKEND='cnclip';
+let PRELOADING=null;   // null=未在预热 / 'cnclip'=正在预热的后端
 let FILES=[];        // {name, dataUrl, w, h}
 let ITEMS=[];        // 识别结果
 let RES_KEYS=[];     // 实际用到的后端
@@ -1166,23 +1224,20 @@ async function api(path,body){
 async function loadConfig(){
   const d=await api('/api/config');
   CFG=d.config; BACKENDS=d.backends; LOADED=d.loaded||[];
-  BACKEND=localStorage.getItem('itemdemo-backend')||'clip';
-  if(BACKEND==='siglip' && !BACKENDS.siglip) BACKEND='clip';
+  // 本分支只有一个后端（Chinese-CLIP），不再读 localStorage
+  BACKEND = Object.keys(BACKENDS)[0] || 'cnclip';
   renderStatusbar(); renderCats(); fillForm();
   renderKpis();                       // 先渲染占位 KPI，避免首屏空白
   if(new URLSearchParams(location.search).has('drawer')) openDrawer();
 }
 
 function fillForm(){
-  $('#thClip').value   = CFG.thresholds.clip;
-  $('#thSiglip').value = CFG.thresholds.siglip;
+  $('#thClip').value   = CFG.thresholds.cnclip ?? 0.70;
   $('#margin').value   = CFG.margin;
   document.querySelectorAll('#backendSeg button').forEach(b=>
     b.classList.toggle('on', b.dataset.b===BACKEND));
   const bd=BACKENDS[BACKEND];
-  $('#backendNote').innerHTML = BACKEND==='both'
-    ? '两个模型各跑一遍并排对比，耗时翻倍。'
-    : (bd?esc(bd.label)+' —— '+esc(bd.note||''):'');
+  $('#backendNote').innerHTML = bd ? esc(bd.label)+' —— '+esc(bd.note||'') : '';
 }
 
 function collectForm(){
@@ -1192,8 +1247,7 @@ function collectForm(){
     descs: el.querySelector('.cdesc').value.split('\n').map(s=>s.trim()).filter(Boolean)
   })).filter(c=>c.name);
   return {
-    thresholds:{clip:parseFloat($('#thClip').value)||0.70,
-                siglip:parseFloat($('#thSiglip').value)||0.0005},
+    thresholds:{cnclip:parseFloat($('#thClip').value)||0.70},
     margin:parseFloat($('#margin').value),
     categories:cats
   };
@@ -1237,8 +1291,8 @@ async function resetConfig(){
 }
 
 async function preload(){
-  const bks = BACKEND==='both' ? ['clip','siglip'] : [BACKEND];
-  $('#preloadMsg').textContent='加载中…（CLIP 约 3s，SigLIP2 约 11s）';
+  const bks = [BACKEND];
+  $('#preloadMsg').textContent='加载中…（首次约 10s，之后走缓存 <1s）';
   try{
     const d=await api('/api/preload',{backends:bks});
     LOADED=d.loaded; $('#preloadMsg').textContent='已就绪：'+d.loaded.join(', ');
@@ -1250,7 +1304,7 @@ async function preload(){
    等用户选完图，模型早加载好了。 */
 async function autoPreload(){
   if(PRELOADING) return;                    // 已在预热
-  const bks = BACKEND==='both' ? ['clip','siglip'] : [BACKEND];
+  const bks = [BACKEND];
   if(bks.every(k=>LOADED.includes(k))) return;   // 已全部就绪
   PRELOADING = bks.join(',');
   renderStatusbar();
@@ -1296,7 +1350,7 @@ function renderStatusbar(){
   $('#statusbar').innerHTML= head + `
     <span class="badge b-dim">${cats.length-neg} 个物品类</span>
     <span class="badge ${neg?'b-green':'b-rose'}">${neg?'负类 '+neg:'⚠ 无负类'}</span>
-    <span class="badge b-dim">阈值 CLIP ${CFG.thresholds.clip} / SigLIP2 ${CFG.thresholds.siglip}</span>
+    <span class="badge b-dim">阈值 ${CFG.thresholds.cnclip ?? CFG.thresholds.clip}</span>
     <span class="badge b-dim">margin ${CFG.margin}</span>`;
 }
 
@@ -1557,7 +1611,7 @@ function renderResults(){
    ══════════════════════════════════════════════════════════════ */
 async function run(){
   if(!FILES.length) return;
-  const bks = BACKEND==='both' ? ['clip','siglip'] : [BACKEND];
+  const bks = [BACKEND];
   RES_KEYS=bks;
   ITEMS=[];
   const btn=$('#btnRun'), bar=$('#bar'), ptxt=$('#progTxt');
@@ -1572,7 +1626,7 @@ async function run(){
     const chunk=FILES.slice(i,i+BATCH);
     ptxt.textContent = firstDone
       ? `识别中 ${Math.min(i+BATCH,FILES.length)}/${FILES.length} …`
-      : `⏳ 首批识别中（正在准备类别原型，42 类双后端约 45 秒，仅此一次）…`;
+      : `⏳ 首批识别中（正在准备类别原型，42 类约 5 秒，仅此一次）…`;
     bar.firstElementChild.style.width=((i+FILES.length*0)/FILES.length*100)+'%';
     let d;
     try{
@@ -1598,8 +1652,8 @@ async function run(){
   bar.classList.remove('run');
   bar.firstElementChild.style.width='100%';
   const secs=((performance.now()-t0)/1000).toFixed(1);
-  ptxt.textContent=`完成 · ${FILES.length} 张 × ${bks.length} 后端 · 总耗时 ${secs}s`
-                  +` · 平均 ${(secs*1000/FILES.length/bks.length).toFixed(0)} ms/张/后端`;
+  ptxt.textContent=`完成 · ${FILES.length} 张 · 总耗时 ${secs}s`
+                  +` · 平均 ${(secs*1000/FILES.length).toFixed(0)} ms/张`;
   btn.disabled=false;
   btn.querySelector('svg')?.classList.remove('spin');
   renderKpis(); renderBreakdown(); renderResults();
@@ -1631,7 +1685,7 @@ function bind(){
 
   document.getElementById('backendSeg').addEventListener('click',e=>{
     const b=e.target.closest('button[data-b]'); if(!b) return;
-    BACKEND=b.dataset.b; localStorage.setItem('itemdemo-backend',BACKEND); fillForm();
+    BACKEND=b.dataset.b; fillForm();
     autoPreload();          // ★ 切后端就后台预热新模型
   });
 
