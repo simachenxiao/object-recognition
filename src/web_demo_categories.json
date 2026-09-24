@@ -8,39 +8,41 @@
   "categories": [
     {
       "name": "身份证",
-      "negative": false,
       "descs": [
         "身份证",
         "一张身份证",
-        "居民身份证"
-      ]
+        "居民身份证",
+        "卡面上印着中华人民共和国居民身份证"
+      ],
+      "negative": false
     },
     {
       "name": "驾驶证",
-      "negative": false,
       "descs": [
         "驾驶证",
         "驾照",
         "机动车驾驶证",
         "黑色封皮的驾驶证",
         "墨绿色封皮的驾驶证",
-        "驾驶证的内页"
-      ]
+        "驾驶证的内页",
+        "封皮上的字是机动车驾驶证"
+      ],
+      "negative": false
     },
     {
       "name": "行驶证",
-      "negative": false,
       "descs": [
         "行驶证",
         "机动车行驶证",
         "车辆行驶证",
         "蓝色封皮的行驶证",
-        "一本蓝色的行驶证"
-      ]
+        "一本蓝色的行驶证",
+        "封皮上的字是机动车行驶证"
+      ],
+      "negative": false
     },
     {
       "name": "银行卡",
-      "negative": false,
       "descs": [
         "一张银行卡",
         "银行卡的正面",
@@ -48,30 +50,30 @@
         "银行卡背面",
         "一张银行卡的芯片面",
         "带卡通图案的银行卡"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "公交卡",
-      "negative": false,
       "descs": [
         "公交卡",
         "交通卡",
         "公交IC卡"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "票据",
-      "negative": false,
       "descs": [
         "票据",
         "收据",
         "发票",
         "纸质票据"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "现金",
-      "negative": false,
       "descs": [
         "现金",
         "纸币",
@@ -82,11 +84,11 @@
         "一把硬币",
         "一枚硬币",
         "一枚金色的纪念币"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "手机",
-      "negative": false,
       "descs": [
         "手机",
         "一部智能手机",
@@ -94,46 +96,46 @@
         "细长的手机",
         "一部正面亮屏的手机",
         "手机背面的大摄像头"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "手机充电器",
-      "negative": false,
       "descs": [
         "手机充电器",
         "充电头",
         "电源适配器"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "充电宝",
-      "negative": false,
       "descs": [
         "充电宝",
         "移动电源"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "耳机",
-      "negative": false,
       "descs": [
         "耳机",
         "有线耳机",
         "蓝牙耳机"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "手表",
-      "negative": false,
       "descs": [
         "手表",
         "腕表",
         "机械表"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "平板电脑",
-      "negative": false,
       "descs": [
         "平板电脑",
         "平板",
@@ -141,110 +143,109 @@
         "背面有摄像头的平板电脑",
         "平板电脑背面有一个摄像头和一个标志",
         "平板电脑背面的圆形摄像头"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "笔记本电脑",
-      "negative": false,
       "descs": [
         "笔记本电脑",
         "闭合的笔记本电脑",
         "没有摄像头的笔记本电脑顶盖",
         "顶盖上只有一个品牌标志的笔记本电脑",
         "笔记本电脑的金属外壳"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "U盘",
-      "negative": false,
       "descs": [
         "U盘",
         "闪存盘",
         "USB存储设备"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "电子烟",
-      "negative": false,
       "descs": [
         "电子烟",
         "笔状的电子烟杆",
         "细长的电子烟",
         "带烟嘴的电子烟"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "香烟",
-      "negative": false,
       "descs": [
         "一包香烟",
         "一盒香烟",
         "未拆封的香烟盒",
         "一条香烟",
         "香烟包装盒"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "打火机",
-      "negative": false,
       "descs": [
         "打火机",
         "一次性打火机",
         "带金属防风罩的打火机",
-        "塑料壳的打火机"
-      ]
+        "红色塑料壳的打火机",
+        "长方形的打火机"
+      ],
+      "negative": false
     },
     {
       "name": "钱包",
-      "negative": false,
       "descs": [
         "钱包",
         "皮钱包",
         "钱夹",
-        "皮质钱包",
-        "正方形皮质钱包"
-      ]
+        "带拉链的皮质钱包"
+      ],
+      "negative": false
     },
     {
       "name": "手提包",
-      "negative": false,
       "descs": [
         "手提包",
         "女式手提包",
         "单肩包"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "背包",
-      "negative": false,
       "descs": [
         "背包",
         "双肩包",
         "书包"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "戒指",
-      "negative": false,
       "descs": [
         "戒指",
         "金戒指",
-        "一枚戒指",
-        "钻石戒指"
-      ]
+        "一枚戒指"
+      ],
+      "negative": false
     },
     {
       "name": "项链",
-      "negative": false,
       "descs": [
         "项链",
         "金项链",
         "带吊坠的项链"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "手链手镯",
-      "negative": false,
       "descs": [
         "手链",
         "手镯",
@@ -252,76 +253,76 @@
         "戴在手腕上的手镯",
         "一个圆环形的玉镯",
         "粗圆环手镯"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "耳环",
-      "negative": false,
       "descs": [
         "耳环",
         "一对耳环",
         "耳钉"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "眼镜",
-      "negative": false,
       "descs": [
         "眼镜",
         "一副眼镜",
         "近视眼镜"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "帽子",
-      "negative": false,
       "descs": [
         "帽子",
         "鸭舌帽",
         "一顶帽子"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "围巾",
-      "negative": false,
       "descs": [
         "围巾",
         "戴在脖子上的围巾",
         "毛线围巾"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "皮带",
-      "negative": false,
       "descs": [
         "皮带",
         "腰带",
         "一条皮带"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "口罩",
-      "negative": false,
       "descs": [
         "口罩",
         "一次性口罩",
         "戴在脸上的口罩"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "钥匙",
-      "negative": false,
       "descs": [
         "钥匙",
         "一串钥匙",
         "一把金属钥匙",
         "汽车的遥控钥匙",
         "车钥匙遥控器"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "笔",
-      "negative": false,
       "descs": [
         "笔",
         "圆珠笔",
@@ -329,39 +330,39 @@
         "细长的笔杆",
         "带笔夹的笔",
         "一支原子笔"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "本子",
-      "negative": false,
       "descs": [
         "本子",
         "一本记事本",
         "纸质记事本",
-        "质皮长方形的记事本"
-      ]
+        "带扣的记事本"
+      ],
+      "negative": false
     },
     {
       "name": "剪刀",
-      "negative": false,
       "descs": [
         "剪刀",
         "一把剪刀",
         "小剪刀"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "纸巾",
-      "negative": false,
       "descs": [
         "纸巾",
         "一包纸巾",
         "抽纸"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "水杯",
-      "negative": false,
       "descs": [
         "一个水杯",
         "一个保温杯",
@@ -370,39 +371,39 @@
         "透明的水杯",
         "细长的圆筒形水杯",
         "带盖的保温杯"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "雨伞",
-      "negative": false,
       "descs": [
         "雨伞",
         "折叠伞",
         "一把伞"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "梳子",
-      "negative": false,
       "descs": [
         "梳子",
         "一把梳子"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "镜子",
-      "negative": false,
       "descs": [
         "镜子",
         "小镜子",
         "手持镜子",
         "带手柄的圆形镜子",
         "圆形的化妆镜"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "指甲刀",
-      "negative": false,
       "descs": [
         "指甲刀",
         "指甲剪",
@@ -410,21 +411,21 @@
         "指甲钳的弧形刀口",
         "小型的指甲剪",
         "小巧的金属指甲刀"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "药品",
-      "negative": false,
       "descs": [
         "药品",
         "药盒",
         "一板药片",
         "药瓶"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "护肤化妆",
-      "negative": false,
       "descs": [
         "护肤品",
         "化妆品",
@@ -432,17 +433,18 @@
         "圆形的粉饼盒",
         "气垫粉饼",
         "化妆品的小盒子"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "零食",
-      "negative": false,
       "descs": [
         "零食",
         "一袋零食",
         "薯片",
         "糖果"
-      ]
+      ],
+      "negative": false
     },
     {
       "name": "非物品",
