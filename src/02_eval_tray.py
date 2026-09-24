@@ -89,6 +89,27 @@ def collect_images(root):
     return out
 
 
+def content_key(path, _cache={}):
+    """图片内容指纹（SHA256 前 16 位）—— 用于跨目录去重
+
+    ★ 为什么不能只按路径去重：
+      同一个测试集可能散落在多个目录（如 images/ 与 物品图片/），
+      同一张图换了文件名就会被当成两张，把准确率算歪。
+      实测就遇到过 3 组这种重复。
+    """
+    k = os.path.abspath(path)
+    if k in _cache:
+        return _cache[k]
+    import hashlib
+    try:
+        with open(path, "rb") as f:
+            h = hashlib.sha256(f.read()).hexdigest()[:16]
+    except OSError:
+        h = k            # 读不到就退回用路径，至少不会误合并
+    _cache[k] = h
+    return h
+
+
 def truth_of(path):
     """从文件名推真值：<分类名><序号>.jpg → 分类名；n<序号>... → 负类"""
     b = os.path.basename(path)
@@ -134,7 +155,19 @@ def main():
         return
 
     imgs = [p for p in collect_images(args.root) if truth_of(p)]
-    imgs = sorted(set(imgs), key=lambda p: (truth_of(p), p))
+    imgs = [p for p in collect_images(args.root) if truth_of(p)]
+    # ★ 按【内容】去重：同名不同图、同图不同名都要正确处理
+    seen, uniq = set(), []
+    for p in sorted(imgs):
+        ck = content_key(p)
+        if ck in seen:
+            continue
+        seen.add(ck)
+        uniq.append(p)
+    n_dup = len(imgs) - len(uniq)
+    if n_dup > 0:
+        print(f"  （按内容去重：跳过 {n_dup} 张重复图）")
+    imgs = sorted(uniq, key=lambda p: (truth_of(p), p))
     if not imgs:
         print("未找到符合命名规范的图片。")
         print("  命名规则：<分类名><序号>.jpg  → 手机1.jpg / 钥匙2.jpeg")
