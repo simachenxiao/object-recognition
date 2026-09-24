@@ -554,7 +554,7 @@ CLASSES = {
 python src/01_clip_zeroshot.py <路径>                # 默认（当前为 clip）
 python src/01_clip_zeroshot.py <路径> --model siglip  # 切 SigLIP2
 python src/01_clip_zeroshot.py <路径> --compare       # 并排对比
-python src/02_eval_tray.py <目录>                     # 批量评测准确率
+# 准确率评测已统一到 Web Demo 的上传界面（拖入文件夹即可）
 ```
 
 ---
@@ -824,7 +824,6 @@ def classify(image, backend="clip", margin_th=0.10):
 | 文档 | 内容 |
 |---|---|
 | `src/01_clip_zeroshot.py` | 可执行实现（双后端 + 对比模式） |
-| `src/02_eval_tray.py` | 批量准确率评测脚本 |
 | `src/web_demo.py` | Web Demo（上传 / 分类管理 / 准确率面板） |
 | `src/cfg_source.py` | 统一配置加载器（单一数据源） |
 | `../README.md` | 环境搭建与使用说明 |
@@ -838,7 +837,6 @@ def classify(image, backend="clip", margin_th=0.10):
 对 §7 的完整配置（**5 类 + 负类**，CLIP th=0.70，SigLIP2 th=0.0005）做端到端验收：
 
 ```bash
-python src/02_eval_tray.py .
 ```
 
 | 后端 | 物品正确 | 非物品正确拒识 | 错分 | 误接受 | 平均耗时 |

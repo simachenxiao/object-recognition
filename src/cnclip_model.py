@@ -1,7 +1,7 @@
 """
 Chinese-CLIP 模型封装 —— 命令行脚本共用
 
-`01_clip_zeroshot.py` 和 `02_eval_tray.py` 通过本模块调用模型。
+`01_clip_zeroshot.py` 通过本模块调用模型。
 `web_demo.py` 为了保持【单文件可直接拷走】的特性，内置了一份等价实现
 （见该文件顶部的「模型管理」段）。改模型逻辑时两处都要改。
 

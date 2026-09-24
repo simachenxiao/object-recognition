@@ -4,7 +4,7 @@
 设计目标
 ────────
 在 Web Demo 里改完分类 / 阈值并点「保存配置」后，命令行脚本
-（01_clip_zeroshot.py / 02_eval_tray.py）自动跟随，不再出现
+（01_clip_zeroshot.py / web_demo.py）自动跟随，不再出现
 「网页 5 类、脚本 8 类」这种对不上的情况。
 
 优先级
@@ -51,7 +51,7 @@ FALLBACK_CONFIG = {
         {"name": "银行卡", "descs": ["银行卡", "一张银行卡", "信用卡"], "negative": False},
         {"name": "公交卡", "descs": ["公交卡", "交通卡", "公交IC卡"], "negative": False},
         {"name": "票据", "descs": ["票据", "收据", "发票", "纸质票据"], "negative": False},
-        {"name": "现金", "descs": ["现金", "纸币", "一叠钞票", "人民币"], "negative": False},
+        {"name": "现金", "descs": ["现金", "纸币", "钞票", "一叠钞票", "人民币", "硬币", "一把硬币"], "negative": False},
         {"name": "手机", "descs": ["手机", "智能手机", "一部手机"], "negative": False},
         {"name": "手机充电器", "descs": ["手机充电器", "充电头", "电源适配器"], "negative": False},
         {"name": "充电宝", "descs": ["充电宝", "移动电源"], "negative": False},
@@ -78,6 +78,7 @@ FALLBACK_CONFIG = {
         {"name": "钥匙", "descs": ["钥匙", "一串钥匙", "一把钥匙"], "negative": False},
         {"name": "笔", "descs": ["笔", "圆珠笔", "一支笔"], "negative": False},
         {"name": "本子", "descs": ["本子", "笔记本", "一本记事本"], "negative": False},
+        {"name": "剪刀", "descs": ["剪刀", "一把剪刀", "小剪刀"], "negative": False},
         {"name": "纸巾", "descs": ["纸巾", "一包纸巾", "抽纸"], "negative": False},
         {"name": "水杯", "descs": ["水杯", "保温杯", "杯子"], "negative": False},
         {"name": "雨伞", "descs": ["雨伞", "折叠伞", "一把伞"], "negative": False},
