@@ -187,7 +187,7 @@ DEFAULT_CONFIG = {
         {"name": "围巾", "descs": ["围巾", "戴在脖子上的围巾", "毛线围巾"], "negative": False},
         {"name": "皮带", "descs": ["皮带", "腰带", "一条皮带"], "negative": False},
         {"name": "口罩", "descs": ["口罩", "一次性口罩", "戴在脸上的口罩"], "negative": False},
-        {"name": "钥匙", "descs": ["钥匙", "一串钥匙", "一把钥匙"], "negative": False},
+        {"name": "钥匙", "descs": ["钥匙", "一串钥匙", "一把金属钥匙", "汽车的遥控钥匙", "车钥匙遥控器"], "negative": False},
         {"name": "笔", "descs": ["笔", "圆珠笔", "一支笔"], "negative": False},
         {"name": "本子", "descs": ["本子", "笔记本", "一本记事本"], "negative": False},
         {"name": "剪刀", "descs": ["剪刀", "一把剪刀", "小剪刀"], "negative": False},
