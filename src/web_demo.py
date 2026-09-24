@@ -997,6 +997,7 @@ input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
 .chip img{width:20px;height:20px;object-fit:cover;border-radius:5px;flex:0 0 auto}
 .chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip b{font-weight:600}
+.chip img{cursor:zoom-in}
 
 .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
 .field{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tt)}
@@ -1036,7 +1037,7 @@ tbody tr{transition:background .15s}
 tbody tr:hover{background:var(--s1)}
 tbody tr:last-child td{border-bottom:0}
 .thumb{width:40px;height:40px;object-fit:cover;border-radius:8px;
-  border:1px solid var(--border);background:var(--s2);display:block}
+  border:1px solid var(--border);background:var(--s2);display:block;cursor:zoom-in}
 .fname{max-width:280px;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap;font-size:12px;color:var(--tp)}
 .mono{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums}
@@ -1108,6 +1109,45 @@ tbody tr:last-child td{border-bottom:0}
 .reloadbar-ico{width:32px;height:32px;flex:0 0 auto;border-radius:10px;
   display:grid;place-items:center;background:rgba(234,88,12,.15);color:var(--warning)}
 .reloadbar-ico svg{width:17px;height:17px}
+
+/* ── 图片灯箱 ─────────────────────────────────────────────── */
+.lightbox{
+  position:fixed;inset:0;z-index:80;
+  display:flex;flex-direction:column;
+  background:rgba(28,25,23,.90);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  opacity:0;pointer-events:none;transition:opacity .2s ease;
+}
+.dark .lightbox{background:rgba(10,9,8,.94)}
+.lightbox.on{opacity:1;pointer-events:auto}
+.lb-bar{
+  display:flex;align-items:center;gap:12px;padding:12px 18px;
+  color:#fff;flex:0 0 auto;
+}
+.lb-title{font-size:13px;font-weight:600;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.lb-meta{font-size:11.5px;opacity:.72;margin-top:2px}
+.lb-idx{font-family:var(--mono);font-size:12px;opacity:.72;
+  font-variant-numeric:tabular-nums}
+.lb-stage{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  gap:12px;padding:0 18px 22px;min-height:0;
+}
+.lb-stage img{
+  max-width:100%;max-height:100%;object-fit:contain;
+  border-radius:10px;background:#fff;
+  box-shadow:0 20px 60px rgba(0,0,0,.55);
+}
+.lb-btn{
+  width:42px;height:42px;flex:0 0 auto;border-radius:12px;
+  display:grid;place-items:center;
+  background:rgba(255,255,255,.12);color:#fff;
+  transition:background .2s;
+}
+.lb-btn:hover{background:rgba(255,255,255,.26)}
+.lb-btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(59,130,246,.5)}
+.lb-btn svg{width:20px;height:20px}
+.lb-close{margin-left:4px}
 
 /* ── 动画 ─────────────────────────────────────────────────── */
 @keyframes float-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -1263,6 +1303,29 @@ tbody tr:last-child td{border-bottom:0}
 
 </main>
 
+<!-- ══ 图片灯箱 ══ -->
+<div class="lightbox" id="lightbox">
+  <div class="lb-bar">
+    <div style="flex:1;min-width:0">
+      <div class="lb-title" id="lbTitle"></div>
+      <div class="lb-meta" id="lbMeta"></div>
+    </div>
+    <span class="lb-idx" id="lbIdx"></span>
+    <button class="lb-btn lb-close" id="lbClose" title="关闭（Esc）">
+      <span data-i="x"></span>
+    </button>
+  </div>
+  <div class="lb-stage" id="lbStage">
+    <button class="lb-btn" id="lbPrev" title="上一张（←）">
+      <span data-i="chevronLeft"></span>
+    </button>
+    <img id="lbImg" alt="">
+    <button class="lb-btn" id="lbNext" title="下一张（→）">
+      <span data-i="chevronRight"></span>
+    </button>
+  </div>
+</div>
+
 <!-- ══ 设置抽屉 ══ -->
 <div class="mask" id="mask"></div>
 <aside class="drawer" id="drawer">
@@ -1364,6 +1427,8 @@ const ICONS={
   cpu:'<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>',
   tags:'<path d="m15 5 6.3 6.3a2.4 2.4 0 0 1 0 3.4L13.4 22.6a2.4 2.4 0 0 1-3.4 0L3.7 16.3A2.4 2.4 0 0 1 3 14.6V5a2 2 0 0 1 2-2h9.6a2.4 2.4 0 0 1 1.7.7Z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
   inbox:'<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  chevronLeft:'<path d="m15 18-6-6 6-6"/>',
+  chevronRight:'<path d="m9 18 6-6-6-6"/>',
   loader:'<path d="M21 12a9 9 0 1 1-6.219-8.56"/>'
 };
 function svg(n,cls){
@@ -1414,6 +1479,7 @@ let FILES=[];        // {name, dataUrl, w, h}
 let ITEMS=[];        // 识别结果
 let RES_KEYS=[];     // 实际用到的后端
 let FILTER='all';
+let ROWS=[];              // 结果表当前显示的行的引用（供灯箱导航）
 const BATCH=6;
 const PALETTE=['b-blue','b-green','b-purple','b-cyan','b-indigo','b-teal','b-orange','b-amber'];
 const catColor=n=>PALETTE[Math.max(0,CFG.categories.findIndex(c=>c.name===n))%PALETTE.length];
@@ -1631,7 +1697,7 @@ function renderChips(){
   const box=$('#chips');
   if(!FILES.length){ box.innerHTML=''; return; }
   const show=FILES.slice(0,40);
-  box.innerHTML=show.map(f=>`<div class="chip" title="${esc(f.name)} ${f.w}×${f.h}">
+  box.innerHTML=show.map((f,i)=>`<div class="chip" data-i="${i}" title="${esc(f.name)} ${f.w}×${f.h}">
       <img src="${f.dataUrl}" alt=""><span>${esc(f.name)}</span></div>`).join('')
     + (FILES.length>show.length?`<div class="chip"><span>… 还有 ${FILES.length-show.length} 张</span></div>`:'');
 }
@@ -1720,6 +1786,62 @@ async function reloadConfigNow(){
   }catch(e){
     toast('重载失败：'+e.message,'bad');
   }finally{ btn.disabled=false; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   图片灯箱：点缩略图放大看原图
+
+   · 点结果表缩略图 / 上传区图片  → 放大
+   · ← → 切换上/下一张（按当前筛选后的可见列表）
+   · Esc / 点背景 / 右上角 ×     → 关闭
+   ══════════════════════════════════════════════════════════════ */
+let LB_LIST = [], LB_IDX = 0;
+
+function openLightbox(list, idx){
+  LB_LIST = list.filter(x=>x && x.src);
+  if(!LB_LIST.length) return;
+  LB_IDX = Math.max(0, Math.min(idx||0, LB_LIST.length-1));
+  renderLightbox();
+  $('#lightbox').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox(){
+  const lb = $('#lightbox');
+  if(!lb.classList.contains('on')) return;
+  lb.classList.remove('on');
+  document.body.style.overflow = '';
+  $('#lbImg').removeAttribute('src');   // 释放大图，避免占内存
+  LB_LIST = [];
+}
+
+function lbStep(d){
+  if(LB_LIST.length < 2) return;
+  LB_IDX = (LB_IDX + d + LB_LIST.length) % LB_LIST.length;
+  renderLightbox();
+}
+
+function renderLightbox(){
+  const it = LB_LIST[LB_IDX];
+  if(!it) return;
+  $('#lbImg').src = it.src;
+  $('#lbImg').alt = it.title || '';
+  $('#lbTitle').textContent = it.title || '';
+  $('#lbMeta').textContent  = it.meta  || '';
+  $('#lbIdx').textContent   = LB_LIST.length>1
+      ? `${LB_IDX+1} / ${LB_LIST.length}` : '';
+  const many = LB_LIST.length > 1;
+  $('#lbPrev').style.display = many ? '' : 'none';
+  $('#lbNext').style.display = many ? '' : 'none';
+}
+
+/* 从当前【筛选后可见】的结果行构建灯箱列表 */
+function lightboxFromResults(rowIndex){
+  openLightbox(ROWS.map(it=>({
+    src: it.thumb,
+    title: it.name,
+    meta: `真值 ${it.truth || '未标注'}` + (it.w ? `　·　${it.w}×${it.h}` : '')
+  })), rowIndex);
 }
 
 const negName=()=>{const n=CFG.categories.find(c=>c.negative);return n?n.name:null;};
@@ -1839,6 +1961,7 @@ function renderResults(){
   if(FILTER==='unknown') rows=ITEMS.filter(it=>RES_KEYS.some(k=>it.results?.[k]?.category===null));
 
   $('#resCount').textContent=`共 ${ITEMS.length} 张，当前显示 ${rows.length} 张`;
+  ROWS = rows;              // ★ 供图片灯箱使用（跟随当前筛选）
 
   let html='<table><thead><tr><th></th><th>文件名</th><th>真值</th>';
   RES_KEYS.forEach(k=>html+=`<th colspan="4">${esc(BACKENDS[k]?.label||k)}</th>`);
@@ -1996,6 +2119,33 @@ function bind(){
     if(entries.length) addFiles(entries);
   });
   ['dragover','drop'].forEach(ev=>window.addEventListener(ev,e=>e.preventDefault()));
+
+  // 图片灯箱：事件委派（renderResults 重渲染后无需重新绑定）
+  $('#results').addEventListener('click', e=>{
+    const img = e.target.closest('img.thumb'); if(!img) return;
+    const tr = img.closest('tr'); if(!tr) return;
+    const i = [...$('#results').querySelectorAll('tbody tr')].indexOf(tr);
+    if(i >= 0) lightboxFromResults(i);
+  });
+  $('#chips').addEventListener('click', e=>{
+    const img = e.target.closest('img'); if(!img) return;
+    const chip = img.closest('.chip'); if(!chip) return;
+    const i = Number(chip.dataset.i || 0);
+    openLightbox(FILES.map(f=>({src:f.dataUrl, title:f.name,
+                                meta:`${f.w}×${f.h}`})), i);
+  });
+  $('#lbClose').addEventListener('click',closeLightbox);
+  $('#lbPrev').addEventListener('click',e=>{e.stopPropagation(); lbStep(-1);});
+  $('#lbNext').addEventListener('click',e=>{e.stopPropagation(); lbStep(1);});
+  $('#lbStage').addEventListener('click',e=>{ if(e.target === $('#lbStage')) closeLightbox(); });
+  $('#lightbox').addEventListener('click',e=>{ if(e.target === $('#lightbox')) closeLightbox(); });
+  // 键盘：Esc 关灯箱优先于关抽屉；← → 翻页
+  document.addEventListener('keydown', e=>{
+    if(!$('#lightbox').classList.contains('on')) return;
+    if(e.key === 'Escape'){ e.stopPropagation(); closeLightbox(); }
+    else if(e.key === 'ArrowLeft'){ e.preventDefault(); lbStep(-1); }
+    else if(e.key === 'ArrowRight'){ e.preventDefault(); lbStep(1); }
+  }, true);
 
   $('#btnRun').addEventListener('click',run);
 
