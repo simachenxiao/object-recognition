@@ -18,7 +18,7 @@
     import cfg_source
 
     CFG = cfg_source.load(
-        default_classes = CLASSES,                       # {名称: [英文描述]}
+        default_classes = CLASSES,                       # {名称: [描述]}
         default_th      = {k: v["th"] for k, v in BACKENDS.items()},
     )
     CLASSES   = CFG["classes"]          # {名称: [描述]}
@@ -123,7 +123,7 @@ def load(default_classes=None, default_th=None, default_margin=0.30,
 
     参数
     ────
-    default_classes : {名称: [英文描述]}     兜底分类表
+    default_classes : {名称: [描述]}          兜底分类表
     default_th      : {后端: 阈值}           兜底阈值
     default_margin  : float                  兜底相对间隔
     path            : 显式指定配置文件（来自 --config）
@@ -177,7 +177,7 @@ def load(default_classes=None, default_th=None, default_margin=0.30,
             descs = [str(d).strip() for d in c.get("descs", []) if str(d).strip()]
             if not descs:
                 descs = [name]
-                warnings.append(f"分类「{name}」没有英文描述，退化用名称本身")
+                warnings.append(f"分类「{name}」没有描述，退化用名称本身")
             classes[name] = descs
             if c.get("negative"):
                 negatives.append(name)

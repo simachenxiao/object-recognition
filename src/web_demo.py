@@ -255,12 +255,6 @@ def load_config():
             _config.setdefault("preload", DEFAULT_CONFIG.get("preload", True))
             for k, v in BACKENDS.items():
                 _config["thresholds"].setdefault(k, v["th"])
-            # 兼容：万一配置里只有旧后端名的阈值，迁移到 cnclip
-            if "cnclip" not in _config["thresholds"]:
-                for old in ("clip", "siglip"):
-                    if old in _config["thresholds"]:
-                        _config["thresholds"]["cnclip"] = _config["thresholds"][old]
-                        break
             return _config
         except Exception as e:
             print(f"[WARN] 读取配置失败，用默认值: {e}")
@@ -593,10 +587,9 @@ def infer_one(pil_img, key, digest=None):
     item_idx = [i for i in range(len(names)) if not is_neg[i]]
     neg_idx = [i for i in range(len(names)) if is_neg[i]]
     if not item_idx:
-        return {"verdict": "★无类别", "reason": "nocat", "latency_ms": round(ms, 1),
-                "topk": [], "neg_score": 0.0, "threshold": th,
-                "category": None, "confidence": 0.0, "margin": 0.0,
-                "cached": hit}
+        return {"verdict": "★无类别", "reason": "nocat",
+                "latency_ms": round(ms, 1), "topk": [],
+                "category": None, "confidence": 0.0, "cached": hit}
 
     ip = pr[item_idx]
     order = ip.argsort(descending=True)
@@ -621,9 +614,6 @@ def infer_one(pil_img, key, digest=None):
         "verdict": "★未知/待人工确认" if reason else best_name,
         "category": None if reason else best_name,
         "confidence": round(best_p, 6),
-        "margin": round(margin_rel, 4),
-        "neg_score": round(neg_p, 6),
-        "threshold": th,
         "topk": topk,
         "reason": reason,
         "latency_ms": round(ms, 1),
@@ -1292,22 +1282,14 @@ tbody tr:last-child td{border-bottom:0}
       <h3><span data-i="cpu"></span>模型与判定</h3>
 
       <div>
-        <div class="cat-lbl" style="margin-bottom:6px">识别后端</div>
-        <div class="seg" id="backendSeg" style="width:100%;display:none">
-          <button data-b="cnclip" style="flex:1">Chinese-CLIP</button>
-        </div>
-        <div class="dsec-note" id="backendNote" style="margin-top:7px"></div>
+        <div class="cat-lbl" style="margin-bottom:6px">当前模型</div>
+        <div class="dsec-note" id="backendNote"></div>
       </div>
 
       <div>
         <div class="cat-lbl" style="margin-bottom:6px">识判阈值</div>
         <input type="number" id="thClip" step="0.01" min="0" max="1" style="width:100%">
       </div>
-
-      <div style="display:none">
-        <input type="number" id="thSiglip" step="0.00001">
-      </div>
-
       <div>
         <div class="cat-lbl" style="margin-bottom:6px">相对间隔 margin</div>
         <input type="number" id="margin" step="0.05" min="0" max="1" style="width:100%">
@@ -1339,7 +1321,7 @@ tbody tr:last-child td{border-bottom:0}
     <div class="dsec">
       <h3><span data-i="tags"></span>识别分类</h3>
       <div class="dsec-note">
-        每行一条英文描述，参与生成类别原型。请务必保留一个<b>负类</b>（勾选「负类」），
+        每行一条<b>中文描述</b>，参与生成类别原型。请务必保留一个<b>负类</b>（勾选「负类」），
         它是拒识「未知物品」的主力，缺失会导致误接受。
       </div>
       <div id="cats" style="display:flex;flex-direction:column;gap:10px"></div>
@@ -1479,8 +1461,6 @@ function fillForm(){
   $('#margin').value   = CFG.margin;
   $('#threads').value    = CFG.threads ?? 0;
   $('#preloadOn').checked = CFG.preload !== false;
-  document.querySelectorAll('#backendSeg button').forEach(b=>
-    b.classList.toggle('on', b.dataset.b===BACKEND));
   const bd=BACKENDS[BACKEND];
   $('#backendNote').innerHTML = bd ? esc(bd.label)+' —— '+esc(bd.note||'') : '';
 }
@@ -1510,7 +1490,7 @@ function renderCats(){
         <button class="del" title="删除">${svg('trash')}</button>
       </div>
       <div>
-        <div class="cat-lbl" style="margin-bottom:5px">英文描述（每行一条）</div>
+        <div class="cat-lbl" style="margin-bottom:5px">描述（每行一条，中文）</div>
         <textarea class="cdesc" spellcheck="false">${esc((c.descs||[]).join('\n'))}</textarea>
       </div>
     </div>`).join('');
@@ -1985,12 +1965,6 @@ function bind(){
     all[all.length-1]?.querySelector('.cname')?.focus();
   });
   $('#btnPreload').addEventListener('click',preload);
-
-  document.getElementById('backendSeg').addEventListener('click',e=>{
-    const b=e.target.closest('button[data-b]'); if(!b) return;
-    BACKEND=b.dataset.b; fillForm();
-    autoPreload();          // ★ 切后端就后台预热新模型
-  });
 
   // 上传
   $('#drop').addEventListener('click',()=>$('#pickFiles').click());

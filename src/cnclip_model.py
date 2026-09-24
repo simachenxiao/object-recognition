@@ -70,7 +70,6 @@ def libs():
     """惰性导入重型依赖"""
     if not _cache:
         import torch
-        from PIL import Image
         from transformers import ChineseCLIPModel, ChineseCLIPProcessor
         try:
             from transformers.utils import logging as hf_logging
@@ -78,7 +77,7 @@ def libs():
             hf_logging.set_verbosity_error()
         except Exception:
             pass
-        _cache.update(torch=torch, Image=Image,
+        _cache.update(torch=torch,
                       ChineseCLIPModel=ChineseCLIPModel,
                       ChineseCLIPProcessor=ChineseCLIPProcessor)
     return _cache
