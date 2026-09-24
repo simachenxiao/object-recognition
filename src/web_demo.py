@@ -214,14 +214,40 @@ DEFAULT_CONFIG = {
 # ══════════════════════════════════════════════════════════════
 _cfg_lock = threading.Lock()
 _config = None
+_cfg_stat = None       # 载入时配置文件的 (mtime_ns, size)，用于检测外部修改
+
+
+def config_file_stat():
+    """配置文件的 (mtime_ns, size)；不存在返回 None"""
+    try:
+        st = os.stat(CONFIG_FILE)
+        return (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def config_file_changed():
+    """配置文件是否被【外部】改过（与内存里的不一致）
+
+    场景：用户直接编辑 web_demo_categories.json（而不是用网页上的「保存配置」）。
+    此时内存里的 _config 还是旧的，需要提示并重载。
+    返回 'changed' / 'missing' / ''
+    """
+    cur = config_file_stat()
+    if _cfg_stat is None:
+        return "missing" if cur is None else ""
+    if cur is None:
+        return "missing"
+    return "changed" if cur != _cfg_stat else ""
 
 
 def load_config():
-    global _config
+    global _config, _cfg_stat
     if os.path.isfile(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, encoding="utf-8") as f:
                 _config = json.load(f)
+            _cfg_stat = config_file_stat()
             # 补全缺失字段
             _config.setdefault("margin", 0.30)
             _config.setdefault("thresholds", {})
@@ -244,11 +270,12 @@ def load_config():
 
 
 def save_config(cfg):
-    global _config
+    global _config, _cfg_stat
     with _cfg_lock:
         _config = cfg
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
+        _cfg_stat = config_file_stat()   # ★ 自己写的不算「外部修改」
     apply_threads(verbose=True)      # 线程数改动即时生效（torch 已导入时）
     return cfg
 
@@ -661,6 +688,13 @@ class Handler(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         if p in ("/", "/index.html"):
             self._send(200, HTML_PAGE, "text/html; charset=utf-8")
+        elif p == "/api/status":
+            # 轻量接口：供前端轮询「配置文件是否被外部改过」
+            self._send(200, {
+                "file_changed": config_file_changed(),
+                "config_file": CONFIG_FILE,
+                "config_name": os.path.basename(CONFIG_FILE),
+            })
         elif p == "/api/config":
             self._send(200, {
                 "config": _config,
@@ -672,6 +706,8 @@ class Handler(BaseHTTPRequestHandler):
                 "cpu_count": os.cpu_count() or 1,
                 "model_dir": CNCLIP_LOCAL_DIR if os.path.isdir(CNCLIP_LOCAL_DIR)
                              else CNCLIP_REPO,
+                "file_changed": config_file_changed(),
+                "config_name": os.path.basename(CONFIG_FILE),
             })
         else:
             self._send(404, {"error": "not found"})
@@ -691,7 +727,21 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/reset":
                 import copy
                 save_config(copy.deepcopy(DEFAULT_CONFIG))
+                _FEATS.clear()            # 类别表全变了，原型作废
                 return self._send(200, {"ok": True, "config": _config,
+                                        "threads_effective": resolve_threads()})
+
+            if p == "/api/reload":
+                # ★ 从磁盘重新读取配置（用于「配置文件被外部修改」后一键重载）
+                old = json.dumps(_config, sort_keys=True, ensure_ascii=False) \
+                    if _config else ""
+                load_config()
+                new = json.dumps(_config, sort_keys=True, ensure_ascii=False)
+                _FEATS.clear()            # 不管变没变，清掉内存原型最保险
+                print(f"[配置] 已从磁盘重载（{'内容有变化' if old != new else '内容未变'}）",
+                      flush=True)
+                return self._send(200, {"ok": True, "config": _config,
+                                        "changed": old != new,
                                         "threads_effective": resolve_threads()})
 
             if p == "/api/preload":
@@ -1055,6 +1105,20 @@ tbody tr:last-child td{border-bottom:0}
   color:var(--ts);cursor:pointer;user-select:none;white-space:nowrap}
 .negbox input{width:14px;height:14px;accent-color:var(--blue);cursor:pointer}
 
+/* ── 配置外部修改提示条 ─────────────────────────────────── */
+.reloadbar{
+  display:flex;align-items:center;gap:12px;padding:12px 16px;
+  border-radius:12px;border:1px solid rgba(234,88,12,.35);
+  background:linear-gradient(135deg,rgba(234,88,12,.12),rgba(234,88,12,.04));
+}
+.dark .reloadbar{
+  border-color:rgba(251,146,60,.30);
+  background:linear-gradient(135deg,rgba(251,146,60,.12),rgba(251,146,60,.03));
+}
+.reloadbar-ico{width:32px;height:32px;flex:0 0 auto;border-radius:10px;
+  display:grid;place-items:center;background:rgba(234,88,12,.15);color:var(--warning)}
+.reloadbar-ico svg{width:17px;height:17px}
+
 /* ── 动画 ─────────────────────────────────────────────────── */
 @keyframes float-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .f0{animation:float-up .4s ease both}
@@ -1073,8 +1137,7 @@ tbody tr:last-child td{border-bottom:0}
 .dot.on::after{content:'';position:absolute;inset:0;border-radius:50%;
   background:inherit;animation:ping 1.4s cubic-bezier(0,0,.2,1) infinite}
 
-.empty{padding:44px 20px;text-align:center;color:var(--tq);font-size:12.5px}
-.empty svg{width:34px;height:34px;margin-bottom:10px;opacity:.5}
+.empty{padding:44px 20px;text-align:center;color:var(--tq);font-size:12.5px}.empty svg{width:34px;height:34px;margin-bottom:10px;opacity:.5}
 .hidden{display:none!important}
 
 @media (prefers-reduced-motion:reduce){
@@ -1108,6 +1171,24 @@ tbody tr:last-child td{border-bottom:0}
 </header>
 
 <main class="wrap">
+
+  <!-- 配置文件被外部修改时的提示条（默认隐藏） -->
+  <div class="reloadbar hidden" id="reloadBar">
+    <span class="reloadbar-ico" data-i="alert"></span>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;color:var(--tp)">
+        配置文件已被外部修改
+      </div>
+      <div style="font-size:11.5px;color:var(--tt);margin-top:2px" id="reloadDetail"></div>
+    </div>
+    <button class="btn btn-sm" id="btnReloadNow"
+            style="border-color:var(--warning);color:var(--warning)">
+      <span data-i="rotate"></span>重新载入
+    </button>
+    <button class="btn btn-sm" id="btnReloadIgnore" title="本次运行内不再提醒">
+      <span data-i="x"></span>
+    </button>
+  </div>
 
   <input type="file" id="pickFiles" accept="image/*" multiple hidden>
   <input type="file" id="pickDir" webkitdirectory directory multiple hidden>
@@ -1345,6 +1426,8 @@ function initTheme(){
    ══════════════════════════════════════════════════════════════ */
 let CFG=null, BACKENDS={}, LOADED=[], BACKEND='cnclip', EFF_THREADS=0;
 let PRELOADING=null;   // null=未在预热 / 'cnclip'=正在预热的后端
+let CFG_FILE_CHANGED=false;   // 配置文件被外部修改过
+let RELOAD_MUTED=false;       // 本次运行内不再提醒
 let FILES=[];        // {name, dataUrl, w, h}
 let ITEMS=[];        // 识别结果
 let RES_KEYS=[];     // 实际用到的后端
@@ -1613,6 +1696,52 @@ function truthOf(name){
       .find(c=>base.startsWith(c.name));
   return hit?hit.name:null;
 }
+/* ══════════════════════════════════════════════════════════════
+   配置文件「外部修改」检测 + 一键热重载
+
+   场景：用户直接编辑 web_demo_categories.json，而不是用网页上的
+          「保存配置」。此时内存里的配置还是旧的，必须重启服务才生效。
+   本功能：轮询 /api/status（轻量），发现变化时顶部弹提示条，
+          点「重新载入」即可生效，不用重启。
+   ══════════════════════════════════════════════════════════════ */
+async function pollConfigStatus(){
+  if(RELOAD_MUTED) return;
+  try{
+    const d=await api('/api/status');
+    const ch=d.file_changed||'';
+    if(ch!==CFG_FILE_CHANGED || $('#reloadBar').classList.contains('hidden')===false){
+      CFG_FILE_CHANGED=ch;
+      renderReloadBar(d.config_name);
+    }
+  }catch(e){ /* 轮询失败静默，不骚扰用户 */ }
+}
+
+function renderReloadBar(name){
+  const bar=$('#reloadBar');
+  if(!CFG_FILE_CHANGED || RELOAD_MUTED){ bar.classList.add('hidden'); return; }
+  const missing = CFG_FILE_CHANGED==='missing';
+  $('#reloadDetail').textContent = missing
+    ? `${name||'配置文件'} 已不存在（被删除或重命名）`
+    : `${name||'配置文件'} 在服务启动后被其他程序修改过。当前用的是内存里的旧版本。`;
+  bar.classList.remove('hidden');
+  paintIcons(bar);
+}
+
+async function reloadConfigNow(){
+  const btn=$('#btnReloadNow');
+  btn.disabled=true;
+  try{
+    const d=await api('/api/reload',{});
+    CFG=d.config; EFF_THREADS=d.threads_effective||EFF_THREADS;
+    CFG_FILE_CHANGED=false;
+    renderCats(); fillForm(); renderStatusbar(); renderReloadBar();
+    toast(d.changed ? '配置已重新载入（内容有变化）'
+                    : '配置已重新载入（内容未变）');
+  }catch(e){
+    toast('重载失败：'+e.message,'bad');
+  }finally{ btn.disabled=false; }
+}
+
 const negName=()=>{const n=CFG.categories.find(c=>c.negative);return n?n.name:null;};
 
 function statsFor(key){
@@ -1896,6 +2025,14 @@ function bind(){
 
   $('#btnRun').addEventListener('click',run);
 
+  // 配置文件外部修改 → 提示条
+  $('#btnReloadNow').addEventListener('click',reloadConfigNow);
+  $('#btnReloadIgnore').addEventListener('click',()=>{
+    RELOAD_MUTED=true; CFG_FILE_CHANGED=false; renderReloadBar();
+    toast('已忽略，本次运行不再提醒（重启服务后生效）');
+  });
+  setInterval(pollConfigStatus, 4000);   // 每 4s 轻量轮询一次
+
   // 结果过滤
   document.getElementById('filterSeg').addEventListener('click',e=>{
     const b=e.target.closest('button[data-f]'); if(!b) return;
@@ -1916,6 +2053,8 @@ function bind(){
   catch(e){ toast('读取配置失败：'+e.message,'bad'); return; }
   // ★ 页面就绪后立即后台预热，用户选图的同时模型在加载
   autoPreload();
+  // ★ 并开始轮询「配置文件是否被外部修改」
+  pollConfigStatus();
 })();
 </script>
 </body>
