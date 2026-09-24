@@ -319,8 +319,42 @@ def encode_image(model, processor, pil_img):
 
 
 # ── 图像特征缓存（按图片内容哈希）────────────────────────────
+_MODEL_TAG = {}
+
+
+def model_tag(key):
+    """模型标识（8 位）—— 用于图像缓存键
+
+    ★ 为什么必需：图像特征只跟【模型 + 预处理】有关。
+      若缓存键里不含模型，换了模型（如 B/16 → L/14）后会命中旧模型的
+      图像特征，**结果全错且不报任何异常**。
+      同一个后端名可以指向不同模型文件，所以不能只用后端名做键。
+
+    标识由【模型来源 + 目录内各文件名与大小】哈希而成：
+    换模型目录、或替换权重文件，标识都会变。
+    """
+    if key in _MODEL_TAG:
+        return _MODEL_TAG[key]
+    cfg = BACKENDS[key]
+    src = CNCLIP_LOCAL_DIR if os.path.isdir(CNCLIP_LOCAL_DIR) else cfg["repo"]
+    try:
+        if os.path.isdir(src):
+            info = sorted((f, os.path.getsize(os.path.join(src, f)))
+                          for f in os.listdir(src)
+                          if os.path.isfile(os.path.join(src, f)))
+            blob = json.dumps(["dir", src, info], sort_keys=True)
+        else:
+            blob = json.dumps(["repo", src])
+    except OSError:
+        blob = cfg["repo"]
+    tag = hashlib.sha256(blob.encode("utf-8")).hexdigest()[:8]
+    _MODEL_TAG[key] = tag
+    return tag
+
+
 def img_cache_path(key, digest):
-    return os.path.join(IMG_CACHE_DIR, f"{key}_{digest}.pt")
+    # ★ 键 = 后端名 + 模型标识 + 图片内容哈希
+    return os.path.join(IMG_CACHE_DIR, f"{key}_{model_tag(key)}_{digest}.pt")
 
 
 def encode_image_cached(model, processor, pil_img, key, digest=None):
